@@ -1,6 +1,6 @@
 from setuptools import setup
 
-setup(name='funniest',
+setup(name='standoffconverter',
       version='0.1',
       description='converter from and to standoff',
       url='https://github.com/millawell/standoffconverter',
