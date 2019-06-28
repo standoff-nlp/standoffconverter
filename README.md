@@ -28,7 +28,7 @@ Given a bunch of XML files (e.g. standard TEI files), I would like to add new an
 
 4. convert the new annotations and the plain text back into an XML with `standoff_to_xml`
 
-    `new_xml = standoffconverter.standoff_to_xml(plain, standoff)``
+    `new_xml = standoffconverter.standoff_to_xml(plain, standoff)`
 
 5. store the modified XML
 
