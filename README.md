@@ -32,7 +32,7 @@ Given a bunch of XML files (e.g. standard TEI files), I would like to add new an
 
 5. store the modified XML
 
-    open("...", "...").write(new_xml)
+     `open("...", "...").write(new_xml)`
 
 
 
