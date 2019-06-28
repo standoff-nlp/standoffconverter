@@ -6,7 +6,7 @@ This package offers two methods
 2. `standoff_to_xml`
 
 I intended this package to be used in the following situation:
-Given a bunch of XML files (e.g. standard TEI files), I would like to add new annotations (for example with an ML method). The Workflow would then be
+Given a bunch of XML files (e.g. standard TEI files), I would like to add new annotations (for example with an ML method). The workflow would then be
 
 1. load the original TEI file with `lxml`
 
