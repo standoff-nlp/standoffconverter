@@ -24,12 +24,13 @@ if __name__ == "__main__":
       
       tree = etree.fromstring(input_xml)
       
-      plain, standoff = standoffconverter.tree_to_standoff(tree)
+      so = standoffconverter.Standoff()
+      so.from_lxml_tree(tree)
       
       t = "aliquyam"
-      begin = plain.index(t)
+      begin = so.plain.index(t)
       end = begin + len(t)
-      standoff.append({
+      so.standoffs.append({
             "begin": begin,
             "end": end,
             "tag": "del",
@@ -37,7 +38,7 @@ if __name__ == "__main__":
             "attrib": {"resp": "David Lassner"}
       })
 
-      new_xml = standoffconverter.standoff_to_xml(plain, standoff)
+      new_xml = so.to_xml()
 
       print("\n\n\n\n####\nOUTPUT XML")
 
