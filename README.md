@@ -9,10 +9,10 @@ Given a bunch of XML files (e.g. standard TEI files), I would like to add new an
     `tree = etree.fromstring(INPUT)`
 
 2. convert it with `tree_to_standoff` into a plain text str and a list of stand-off annotations
-    '''
+    ```
     so = standoffconverter.Standoff()
     so.from_lxml_tree(tree)
-    '''
+    ```
 
 3. create new annotations (automatically) and add them to the original
 
