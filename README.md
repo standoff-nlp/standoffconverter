@@ -6,7 +6,7 @@ This package offers two methods
 2. `standoff_to_xml`
 
 I intended this package to be used in the following situation:
-Given a bunch of XML files (e.g. standard TEI files), I would like to add new annotations (for example with an ML method). The Workflow would then be
+Given a bunch of XML files (e.g. standard TEI files), I would like to add new annotations (for example with an ML method). The workflow would then be
 
 1. load the original TEI file with `lxml`
 
@@ -28,11 +28,11 @@ Given a bunch of XML files (e.g. standard TEI files), I would like to add new an
 
 4. convert the new annotations and the plain text back into an XML with `standoff_to_xml`
 
-    `new_xml = standoffconverter.standoff_to_xml(plain, standoff)``
+    `new_xml = standoffconverter.standoff_to_xml(plain, standoff)`
 
 5. store the modified XML
 
-    open("...", "...").write(new_xml)
+     `open("...", "...").write(new_xml)`
 
 
 
