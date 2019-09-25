@@ -32,18 +32,16 @@ class Standoff:
     def __init__(self, standoffs=None, plain=None):
         self.standoffs = [] if standoffs is None else standoffs
         self.plain = plain
-
-    def from_lxml_tree(self, tree):
+ 
+    @classmethod
+    def from_lxml_tree(cls, tree):
         """create a standoff representation from an lxml tree.
 
         arguments:
         tree -- the lxml object
         """
-        assert self.plain is None, "tree already initialized."
-        
         plain, standoffs = tree_to_standoff(tree)
-        self.plain = plain
-        self.standoffs = standoffs
+        return cls(standoffs, plain)
 
     def to_xml(self):
         """create a standoff representation from an lxml tree.
