@@ -1,3 +1,5 @@
+import numpy as np
+
 
 def tree_to_standoff(tree):
     stand_off_props = {}
@@ -27,6 +29,46 @@ def tree_to_standoff(tree):
     return "".join(plain), [v for k,v in stand_off_props.items()]
 
 
+class FilterSet:
+
+    def __init__(self, so):
+        self.so = so
+        self.find_map = np.zeros(len(so.plain))
+        self.exclude_map = np.zeros(len(so.plain))
+
+    def find(self, query):
+        for attr in self.so.standoffs:
+            if attr["tag"] == query:
+                self.find_map[attr["begin"]:attr["end"]] = 1
+        return self
+
+    def exclude(self, query):
+        for attr in self.so.standoffs:
+            if attr["tag"] == query:
+                self.exclude_map[attr["begin"]:attr["end"]] = 1
+        return self
+
+    def __iter__(self, flat=True):
+
+        filtered_standoffs = []
+        for attr in self.so.standoffs:
+            if self.find_map[attr["begin"]:attr["end"]].sum() == attr["end"] - attr["begin"]:
+                if self.exclude_map[attr["begin"]:attr["end"]].sum() < attr["end"] - attr["begin"]:
+                    filtered_standoffs.append(attr)
+
+        if flat:
+            if len(self.so.standoffs) == 0:
+                return
+            min_depth = min(self.so.standoffs, key=lambda x: x["depth"])
+
+        for attr in self.so.standoffs:
+            if not flat or attr["depth"] == min_depth:
+                yield attr, "".join(
+                    c for ic, c in enumerate(self.so.plain[attr["begin"]:attr["end"]]) if (
+                        self.exclude_map == 0 and self.find_map == 1
+                    )
+                )
+
 class Standoff:
     
     def __init__(self, standoffs=None, plain=None):
@@ -42,6 +84,11 @@ class Standoff:
         """
         plain, standoffs = tree_to_standoff(tree)
         return cls(standoffs, plain)
+
+
+    def __iter__(self):
+        for attr in self.standoffs:
+            yield attr, self.plain[attr["begin"]:attr["end"]]
 
     def to_xml(self):
         """create a standoff representation from an lxml tree.

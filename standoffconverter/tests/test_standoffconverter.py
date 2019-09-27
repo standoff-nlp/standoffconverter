@@ -5,6 +5,19 @@ import standoffconverter
 
 input_xml1 = b'''<W><text type='a'>A B C</text></W>'''
 input_xml2 = b'''<W><text type='a'>The answer is 42.</text></W>'''
+input_xml3 = b'''<W>
+    <text type='a'>
+        <p type='b'>The answer<del> not this</del> is 42.</p>
+        <p type='b'>The answer is 43.</p>
+        <p type='b'>The answer is 44.</p>
+        <p type='b'>The answer is 45.</p>
+    </text>
+    <text type='a'>
+        <p type='b'>The answer is 46.</p>
+        <p type='b'>The answer is 47.</p>
+        <p type='b'>The answer is 48.</p>
+    </text>
+</W>'''
 
 class TestStandoffConverter(unittest.TestCase):
 
@@ -41,6 +54,43 @@ class TestStandoffConverter(unittest.TestCase):
         self.assertTrue(
             so.is_duplicate_annotation(0,len(so.plain), "W", {})
         )
+
+    def test_find(self):
+        tree = etree.fromstring(input_xml3)
+        so = standoffconverter.Standoff.from_lxml_tree(tree)
+
+        filterset = standoffconverter.FilterSet(so)
+        filterset.find("text").find("p")
+
+
+        for attr, text in filterset:
+            self.assertTrue(
+                text == "The answer not this is 42."
+            )
+
+            self.assertTrue(
+                attr["type"] == "a"
+            )
+            break
+    
+    def test_find_exclude(self):
+
+        tree = etree.fromstring(input_xml3)
+        so = standoffconverter.Standoff.from_lxml_tree(tree)
+
+        filterset = standoffconverter.FilterSet(so)
+        filterset.find("text").find("p").exclude("del")
+
+
+        for attr, text in filterset:
+            self.assertTrue(
+                text == "The answer is 42."
+            )
+
+            self.assertTrue(
+                attr["type"] == "a"
+            )
+            break
 
 
 if __name__ == '__main__':

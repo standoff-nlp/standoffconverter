@@ -10,5 +10,6 @@ setup(name='standoffconverter',
       packages=['standoffconverter'],
       install_requires=[
           'lxml',
+          'numpy'
       ],
       zip_safe=False)
