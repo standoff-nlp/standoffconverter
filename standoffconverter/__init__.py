@@ -1,4 +1,11 @@
 import numpy as np
+from lxml import etree
+
+
+def load(fname):
+    with open(fname, "r") as fin:
+        tree = etree.fromstring(fin.read())
+    return Standoff.from_lxml_tree(tree)
 
 
 def tree_to_standoff(tree):
@@ -26,55 +33,122 @@ def tree_to_standoff(tree):
             plain += [char for char in el.tail]
 
     __traverse_and_parse(tree, plain, stand_off_props)
-    return "".join(plain), [v for k,v in stand_off_props.items()]
+    return "".join(plain), [v for k,v in stand_off_props.items()], stand_off_props
 
 
-class FilterSet:
+def standoff_to_tree(so):
+    """create a standoff representation from an lxml tree.
+
+    returns:
+    string -- the string containing the xml
+    """
+    assert so.plain is not None, "tree not yet initialized."
+
+    standoff_begin_lookup = [[] for _ in range(len(so.plain)+1)]
+    standoff_end_lookup = [[] for _ in range(len(so.plain)+1)]
+    
+    for v in so.standoffs:
+        standoff_begin_lookup[v["begin"]] += [v]
+        standoff_end_lookup[v["end"]] += [v]
+
+    out_str = ""
+
+    offset = 0
+
+    for ic in range(len(so.plain)+1):
+        try:
+            c = so.plain[ic]
+        except IndexError:
+            c = ""
+        
+        # add_closing tags
+        new_str = ""
+        sorted_end = sorted(
+            sorted(standoff_end_lookup[ic], key=lambda x: -x["depth"]),
+            key=lambda x: -(x["end"] - x["begin"])
+        )
+
+        for v in sorted_end:
+            tag_str = "</{}>".format(v["tag"])
+            new_str += tag_str
+
+        out_str += new_str
+        offset += len(new_str)
+
+        # add opening tags
+        new_str = ""
+        
+        sorted_begin = sorted(
+            sorted(standoff_begin_lookup[ic], key=lambda x: x["depth"]),
+            key=lambda x: -(x["end"] - x["begin"])
+        )
+
+        for v in sorted_begin:
+
+            attrib_str = " " + " ".join(
+                "{}='{}'".format(k_, v_) for k_, v_ in v["attrib"].items()
+            )
+            tag_str = "<{}{}>".format(
+                v["tag"],
+                attrib_str if len(attrib_str) > 1 else ""
+            )
+            new_str += tag_str
+
+        out_str += new_str
+        offset += len(new_str)
+
+        out_str += c
+
+
+    return etree.fromstring(out_str)
+
+
+class Filter:
 
     def __init__(self, so):
         self.so = so
-        self.find_map = np.zeros(len(so.plain))
+        self.find_state = [so.tree]
         self.exclude_map = np.zeros(len(so.plain))
 
-    def find(self, query):
-        for attr in self.so.standoffs:
-            if attr["tag"] == query:
-                self.find_map[attr["begin"]:attr["end"]] = 1
+    def find(self, tag):
+        new_find_state = []
+
+        for it in self.find_state:
+            new_find_state += [jt for jt in it.iterfind(".//{}".format(tag))]
+
+        self.find_state = new_find_state
         return self
 
-    def exclude(self, query):
-        for attr in self.so.standoffs:
-            if attr["tag"] == query:
-                self.exclude_map[attr["begin"]:attr["end"]] = 1
-        return self
+    def first(self):
+        for plain, tag, attrib in self.__iter__():
+            return plain, tag, attrib
 
-    def __iter__(self, flat=True):
+    def exclude(self, tag):
+        for it in self.find_state:
+            for jt in it.iterfind(".//{}".format(tag)):
+                standoff = self.so.tree_standoff_link[jt]
+                self.exclude_map[standoff["begin"]:standoff["end"]] = 1
 
-        filtered_standoffs = []
-        for attr in self.so.standoffs:
-            if self.find_map[attr["begin"]:attr["end"]].sum() == attr["end"] - attr["begin"]:
-                if self.exclude_map[attr["begin"]:attr["end"]].sum() < attr["end"] - attr["begin"]:
-                    filtered_standoffs.append(attr)
-
-        if flat:
-            if len(self.so.standoffs) == 0:
-                return
-            min_depth = min(self.so.standoffs, key=lambda x: x["depth"])
-
-        for attr in self.so.standoffs:
-            if not flat or attr["depth"] == min_depth:
-                yield attr, "".join(
-                    c for ic, c in enumerate(self.so.plain[attr["begin"]:attr["end"]]) if (
-                        self.exclude_map == 0 and self.find_map == 1
-                    )
+    def __iter__(self):
+        for el in self.find_state:
+            standoff = self.so.tree_standoff_link[el]
+            filtered_string = (
+                "".join(
+                    char for ichar, char in enumerate(self.so.plain[standoff["begin"]:standoff["end"]])
+                                                if self.exclude_map[ichar + standoff["begin"]] == 0
                 )
+            )
+            yield filtered_string, standoff["tag"], standoff["attrib"]
+
 
 class Standoff:
     
-    def __init__(self, standoffs=None, plain=None):
+    def __init__(self, standoffs=None, plain=None, tree=None, tree_standoff_link=None):
         self.standoffs = [] if standoffs is None else standoffs
         self.plain = plain
- 
+        self.tree = tree
+        self.tree_standoff_link = tree_standoff_link
+
     @classmethod
     def from_lxml_tree(cls, tree):
         """create a standoff representation from an lxml tree.
@@ -82,78 +156,21 @@ class Standoff:
         arguments:
         tree -- the lxml object
         """
-        plain, standoffs = tree_to_standoff(tree)
-        return cls(standoffs, plain)
-
+        plain, standoffs, link = tree_to_standoff(tree)
+        return cls(standoffs, plain, tree, link)
 
     def __iter__(self):
         for attr in self.standoffs:
             yield attr, self.plain[attr["begin"]:attr["end"]]
 
-    def to_xml(self):
-        """create a standoff representation from an lxml tree.
+    def synchronize_representations(self, reference):
 
-        returns:
-        string -- the string containing the xml
-        """
-        assert self.plain is not None, "tree not yet initialized."
-
-        standoff_begin_lookup = [[] for _ in range(len(self.plain)+1)]
-        standoff_end_lookup = [[] for _ in range(len(self.plain)+1)]
-        
-        for v in self.standoffs:
-            standoff_begin_lookup[v["begin"]] += [v]
-            standoff_end_lookup[v["end"]] += [v]
-
-        out_xml = ""
-
-        offset = 0
-
-        for ic in range(len(self.plain)+1):
-            try:
-                c = self.plain[ic]
-            except IndexError:
-                c = ""
-            
-            # add_closing tags
-            new_str = ""
-            sorted_end = sorted(
-                sorted(standoff_end_lookup[ic], key=lambda x: -x["depth"]),
-                key=lambda x: -(x["end"] - x["begin"])
-            )
-
-            for v in sorted_end:
-                tag_str = "</{}>".format(v["tag"])
-                new_str += tag_str
-
-            out_xml += new_str
-            offset += len(new_str)
-
-            # add opening tags
-            new_str = ""
-            
-            sorted_begin = sorted(
-                sorted(standoff_begin_lookup[ic], key=lambda x: x["depth"]),
-                key=lambda x: -(x["end"] - x["begin"])
-            )
-
-            for v in sorted_begin:
-
-                attrib_str = " " + " ".join(
-                    "{}='{}'".format(k_, v_) for k_, v_ in v["attrib"].items()
-                )
-                tag_str = "<{}{}>".format(
-                    v["tag"],
-                    attrib_str if len(attrib_str) > 1 else ""
-                )
-                new_str += tag_str
-
-            out_xml += new_str
-            offset += len(new_str)
-
-            out_xml += c
-
-        return out_xml
+        if reference == "standoff":
+            self.tree = standoff_to_tree(self)
+        elif reference == "tree":
+            self.plain, self.standoffs = tree_to_standoff(self.tree)
+        else:
+            raise ValueError("reference unknown.")
 
     def add_annotation(self, begin, end, tag, depth, attribute, unique=True):
         """add a standoff annotation.
@@ -177,6 +194,7 @@ class Standoff:
                 "attrib": attribute,
                 "depth": depth if depth is not None else 0
             })
+        self.synchronize_representations(reference="standoff")
 
     def is_duplicate_annotation(self, begin, end, tag, attribute):
         """check whether this annotation already in self.standoffs
@@ -206,4 +224,10 @@ class Standoff:
                 and attrs_equal(attribute, standoff["attrib"])):
                 return True
         return False
+     
+    def save(self, fname):
+        with open(fname, "w") as fout:
+            fout.write(etree.tostring(self.tree, encoding=str))
+
+    
         

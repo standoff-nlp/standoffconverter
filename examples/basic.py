@@ -1,7 +1,7 @@
 from lxml import etree
 import standoffconverter
 
-input_xml = b'''<?xml version='1.0' encoding='utf-8'?>
+input_xml = '''
 <W>
   <header>
     <date>
@@ -20,26 +20,19 @@ input_xml = b'''<?xml version='1.0' encoding='utf-8'?>
 if __name__ == "__main__":
       
       print("INPUT XML:")
-      print(input_xml.decode("utf-8"))
+      print(input_xml)
       
       tree = etree.fromstring(input_xml)
       
-      so = standoffconverter.Standoff()
-      so.from_lxml_tree(tree)
+      so = standoffconverter.Standoff.from_lxml_tree(tree)
       
       t = "aliquyam"
       begin = so.plain.index(t)
       end = begin + len(t)
-      so.standoffs.append({
-            "begin": begin,
-            "end": end,
-            "tag": "del",
-            "depth": 0,
-            "attrib": {"resp": "David Lassner"}
-      })
+      so.add_annotation(begin, end, "del", 0, {"resp": "David Lassner"})
 
-      new_xml = so.to_xml()
+      new_xml = etree.tostring(so.tree, encoding=str)
 
-      print("\n\n\n\n####\nOUTPUT XML")
+      print("\n\n####\nOUTPUT XML")
 
       print(new_xml)
