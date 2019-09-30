@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='standoffconverter',
-      version='0.2',
+      version='0.3',
       description='converter from and to standoff',
       url='https://github.com/millawell/standoffconverter',
       author='David Lassner',
