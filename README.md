@@ -4,39 +4,16 @@
 I intended this package to be used in the following situation:
 Given a bunch of XML files (e.g. standard TEI files), I would like to add new annotations (for example with an ML method). The workflow would then be
 
-1. load the original TEI file with `lxml`
+```
+import standoffconverter as so
+from standoffconverter import Filter as sofilter
 
-    `tree = etree.fromstring(INPUT)`
+# 1. load the original TEI file and convert it to standoff format
+sobj = so.load("some_file.xml")
 
-2. convert it with `tree_to_standoff` into a plain text str and a list of stand-off annotations
-    ```
-    so = standoffconverter.Standoff.from_lxml_tree(tree)
-    ```
+# 2. create new annotations (automatically) and add them to the original
+so.add_annotation(begin, end, "SOMETAG", 0, {})
 
-3. create new annotations (automatically) and add them to the original
-
-    ```
-    so.standoffs.append({
-        "begin": 42, # character position in plain text str
-        "end": 42, # character position in plain text str
-        "tag": "SOMETAG",
-        "depth": 0, # depth of the annotation wrt. to the other tags
-        "attrib": {...} # dict of attrib as in etree.attrib elements
-      })
-
-4. convert the new annotations and the plain text back into an XML with `standoff_to_xml`
-
-    `new_xml = so.to_xml()`
-
-5. store the modified XML
-
-     `open("...", "...").write(new_xml)`
-
-
-
-      
-      
-      
-      
-
-      
+# 3. store the modified XML
+sobj.save("some_new_file.xml")
+```
