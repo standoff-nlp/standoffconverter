@@ -77,7 +77,8 @@ class TestStandoffConverter(unittest.TestCase):
         filterset.find("text").find("p")
 
 
-        for text, tag, attrib in filterset:
+        for text, standoff in filterset:
+            attrib = standoff["attrib"]
             self.assertTrue(
                 text == "The answer not this is 42."
             )
@@ -96,7 +97,8 @@ class TestStandoffConverter(unittest.TestCase):
         filterset.find("text").find("p").exclude("del")
 
 
-        for text, tag, attrib in filterset:
+        for text, standoff in filterset:
+            attrib = standoff["attrib"]
             self.assertTrue(
                 text == "The answer is 42."
             )
@@ -113,7 +115,7 @@ class TestStandoffConverter(unittest.TestCase):
 
         filterset = standoffconverter.Filter(so).find("del")
 
-        text, _, _ = filterset.first()
+        text, _ = filterset.first()
 
         self.assertTrue(
             text == " not this"

@@ -120,8 +120,8 @@ class Filter:
         return self
 
     def first(self):
-        for plain, tag, attrib in self.__iter__():
-            return plain, tag, attrib
+        for plain, standoff in self.__iter__():
+            return plain, standoff
 
     def exclude(self, tag):
         for it in self.find_state:
@@ -138,7 +138,7 @@ class Filter:
                                                 if self.exclude_map[ichar + standoff["begin"]] == 0
                 )
             )
-            yield filtered_string, standoff["tag"], standoff["attrib"]
+            yield filtered_string, standoff
 
 
 class Standoff:
