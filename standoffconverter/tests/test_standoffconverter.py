@@ -122,5 +122,22 @@ class TestStandoffConverter(unittest.TestCase):
         )
 
 
+    def test_filter_copy(self):
+        tree = etree.fromstring(input_xml3)
+        so = standoffconverter.Standoff.from_lxml_tree(tree)
+        
+        filterset = standoffconverter.Filter(so)
+        filterset2 = filterset.copy().exclude("del").find("p")
+        filterset=filterset.find("p")
+
+
+
+        for el1, el2 in zip(filterset, filterset2):
+            break
+
+        self.assertTrue(el1[0] == "The answer not this is 42.")
+        self.assertTrue(el2[0] == "The answer is 42.")
+
+
 if __name__ == '__main__':
     unittest.main()

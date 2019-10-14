@@ -1,7 +1,6 @@
 import numpy as np
 from lxml import etree
 
-
 def load(fname):
     with open(fname, "r") as fin:
         tree = etree.fromstring(fin.read())
@@ -36,85 +35,75 @@ def tree_to_standoff(tree):
     return "".join(plain), [v for k,v in stand_off_props.items()], stand_off_props
 
 
+
 def standoff_to_tree(so):
-    """create a standoff representation from an lxml tree.
 
-    returns:
-    string -- the string containing the xml
-    """
-    assert so.plain is not None, "tree not yet initialized."
+    order = sorted(
+        sorted(
+            sorted(
+                so.standoffs,
+                key=lambda x: x["depth"]
+            ),
+            key=lambda x:  (x["begin"] - x["end"])
+        ),
+        key=lambda x: -x["begin"]
+    )
 
-    standoff_begin_lookup = [[] for _ in range(len(so.plain)+1)]
-    standoff_end_lookup = [[] for _ in range(len(so.plain)+1)]
-    
-    for v in so.standoffs:
-        standoff_begin_lookup[v["begin"]] += [v]
-        standoff_end_lookup[v["end"]] += [v]
+    def __traverse_and_write(parent, ll):
 
-    out_str = ""
+        if len(ll) > 0:
+            c_so = ll[0]
 
-    offset = 0
+            new_el = etree.Element(c_so["tag"])
+            for k,v in c_so["attrib"].items():
+                new_el.set(k,v)
 
-    for ic in range(len(so.plain)+1):
-        try:
-            c = so.plain[ic]
-        except IndexError:
-            c = ""
-        
-        # add_closing tags
-        new_str = ""
-        sorted_end = sorted(
-            sorted(standoff_end_lookup[ic], key=lambda x: -x["depth"]),
-            key=lambda x: -(x["end"] - x["begin"])
-        )
+            if parent is None:
+                parent = new_el
+            else:
+                parent.append(new_el)
+            
 
-        for v in sorted_end:
-            tag_str = "</{}>".format(v["tag"])
-            new_str += tag_str
+            if len(ll[1:]) > 0:
+                next_so = ll[1]
 
-        out_str += new_str
-        offset += len(new_str)
+                new_el.text = so.plain[c_so["begin"]:next_so["begin"]]
+                if (
+                    (c_so["begin"] < next_so["begin"] and c_so["end"] > next_so["end"])
+                    or (c_so["begin"] <= next_so["begin"] and c_so["end"] > next_so["end"])
+                    or (c_so["begin"] < next_so["begin"] and c_so["end"] >= next_so["end"])
+                    or (c_so["begin"] == next_so["begin"] and c_so["end"] == next_so["end"] and c_so["depth"] < next_so["depth"])
+                ):                
+                    child = __traverse_and_write(new_el, ll[1:])
+                    child.tail = so.plain[next_so["end"]: c_so["end"]]
+                else:
+                    new_el.tail = so.plain[c_so["end"]: next_so["begin"]]
+                    sibling = __traverse_and_write(parent, ll[1:])
+                    sibling.tail = so.plain[next_so["end"]: c_so["end"]]
 
-        # add opening tags
-        new_str = ""
-        
-        sorted_begin = sorted(
-            sorted(standoff_begin_lookup[ic], key=lambda x: x["depth"]),
-            key=lambda x: -(x["end"] - x["begin"])
-        )
+            else:
+                new_el.text = so.plain[c_so["begin"]:c_so["end"]]
+            
+            return new_el
 
-        for v in sorted_begin:
+    root = __traverse_and_write(None, order)
 
-            attrib_str = " " + " ".join(
-                "{}='{}'".format(k_, v_) for k_, v_ in v["attrib"].items()
-            )
-            tag_str = "<{}{}>".format(
-                v["tag"],
-                attrib_str if len(attrib_str) > 1 else ""
-            )
-            new_str += tag_str
-
-        out_str += new_str
-        offset += len(new_str)
-
-        out_str += c
-
-
-    return etree.fromstring(out_str)
+    return root
 
 
 class Filter:
 
-    def __init__(self, so):
+    def __init__(self, so, namespace=""):
         self.so = so
         self.find_state = [so.tree]
         self.exclude_map = np.zeros(len(so.plain))
+        self.namespace = namespace
 
     def find(self, tag):
         new_find_state = []
 
         for it in self.find_state:
-            new_find_state += [jt for jt in it.iterfind(".//{}".format(tag))]
+            new_find_state += [jt for jt in it.iterfind(".//{}{}".format(self.namespace, tag))]
 
         self.find_state = new_find_state
         return self
@@ -125,9 +114,11 @@ class Filter:
 
     def exclude(self, tag):
         for it in self.find_state:
-            for jt in it.iterfind(".//{}".format(tag)):
+            for jt in it.iterfind(".//{}{}".format(self.namespace, tag)):
                 standoff = self.so.tree_standoff_link[jt]
                 self.exclude_map[standoff["begin"]:standoff["end"]] = 1
+
+        return self
 
     def __iter__(self):
         for el in self.find_state:
@@ -140,6 +131,16 @@ class Filter:
             )
             yield filtered_string, standoff
 
+
+    def copy(self):
+        '''
+        create a copy of the filter set by retaining the original standoff and namespace
+        also retaining
+        '''
+        new_obj = Filter(self.so, self.namespace)    
+        new_obj.exclude_map = np.copy(self.exclude_map)
+        new_obj.find_state = [el for el in self.find_state]
+        return new_obj
 
 class Standoff:
     
@@ -172,7 +173,7 @@ class Standoff:
         else:
             raise ValueError("reference unknown.")
 
-    def add_annotation(self, begin, end, tag, depth, attribute, unique=True):
+    def add_annotation(self, begin=None, end=None, tag=None, depth=None, attribute=None, unique=True):
         """add a standoff annotation.
 
         arguments:
