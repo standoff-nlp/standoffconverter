@@ -1,9 +1,9 @@
 from setuptools import setup
 
 setup(name='standoffconverter',
-      version='0.3',
-      description='converter from and to standoff',
-      url='https://github.com/millawell/standoffconverter',
+      version='0.4',
+      description='converter from xml to standoff and back',
+      url='https://https://github.com/standoff-nlp/standoffconverter',
       author='David Lassner',
       author_email='lassner@tu-berlin.de',
       license='MIT',

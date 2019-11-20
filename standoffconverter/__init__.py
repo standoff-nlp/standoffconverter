@@ -1,94 +1,14 @@
 import numpy as np
 from lxml import etree
 
+from .tree_to_standoff import tree_to_standoff
+from .standoff_to_tree import standoff_to_tree
+
+
 def load(fname):
     with open(fname, "r") as fin:
         tree = etree.fromstring(fin.read())
     return Standoff.from_lxml_tree(tree)
-
-
-def tree_to_standoff(tree):
-    stand_off_props = {}
-    plain = []
-
-    def __traverse_and_parse(el, plain, stand_off_props, depth=0):
-        stand_off_props[el] = {
-            "begin": len(plain),
-            "tag": el.tag,
-            "attrib": el.attrib,
-            "depth": depth
-        }
-
-        if el.text is not None:
-            plain += [char for char in el.text]
-
-        for gen in el:
-            __traverse_and_parse(gen, plain, stand_off_props, depth=depth+1)
-
-        depth -= 1
-        stand_off_props[el]["end"] = len(plain)
-
-        if el.tail is not None:
-            plain += [char for char in el.tail]
-
-    __traverse_and_parse(tree, plain, stand_off_props)
-    return "".join(plain), [v for k,v in stand_off_props.items()], stand_off_props
-
-
-
-def standoff_to_tree(so):
-
-    order = sorted(
-        sorted(
-            sorted(
-                so.standoffs,
-                key=lambda x: x["depth"]
-            ),
-            key=lambda x:  (x["begin"] - x["end"])
-        ),
-        key=lambda x: -x["begin"]
-    )
-
-    def __traverse_and_write(parent, ll):
-
-        if len(ll) > 0:
-            c_so = ll[0]
-
-            new_el = etree.Element(c_so["tag"])
-            for k,v in c_so["attrib"].items():
-                new_el.set(k,v)
-
-            if parent is None:
-                parent = new_el
-            else:
-                parent.append(new_el)
-            
-
-            if len(ll[1:]) > 0:
-                next_so = ll[1]
-
-                new_el.text = so.plain[c_so["begin"]:next_so["begin"]]
-                if (
-                    (c_so["begin"] < next_so["begin"] and c_so["end"] > next_so["end"])
-                    or (c_so["begin"] <= next_so["begin"] and c_so["end"] > next_so["end"])
-                    or (c_so["begin"] < next_so["begin"] and c_so["end"] >= next_so["end"])
-                    or (c_so["begin"] == next_so["begin"] and c_so["end"] == next_so["end"] and c_so["depth"] < next_so["depth"])
-                ):                
-                    child = __traverse_and_write(new_el, ll[1:])
-                    child.tail = so.plain[next_so["end"]: c_so["end"]]
-                else:
-                    new_el.tail = so.plain[c_so["end"]: next_so["begin"]]
-                    sibling = __traverse_and_write(parent, ll[1:])
-                    sibling.tail = so.plain[next_so["end"]: c_so["end"]]
-
-            else:
-                new_el.text = so.plain[c_so["begin"]:c_so["end"]]
-            
-            return new_el
-
-    root = __traverse_and_write(None, order)
-
-    return root
 
 
 class Filter:
@@ -169,7 +89,7 @@ class Standoff:
         if reference == "standoff":
             self.tree = standoff_to_tree(self)
         elif reference == "tree":
-            self.plain, self.standoffs = tree_to_standoff(self.tree)
+            self.plain, self.standoffs, self.tree_standoff_link = tree_to_standoff(self.tree)
         else:
             raise ValueError("reference unknown.")
 
@@ -228,7 +148,7 @@ class Standoff:
      
     def save(self, fname):
         with open(fname, "w") as fout:
-            fout.write(etree.tostring(self.tree, encoding=str))
+            fout.write(etree.tostring(self.tree))
 
     
         

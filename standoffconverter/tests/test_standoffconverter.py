@@ -54,12 +54,43 @@ class TestStandoffConverter(unittest.TestCase):
         self.assertTrue(so.standoffs[0]["end"] == len(so.plain))
         self.assertTrue(so.standoffs[-1]["end"] == len(so.plain))
 
-    def test_add_annotation(self):
+    def test_add_annotation_1(self):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff.from_lxml_tree(tree)
         so.add_annotation(0,1,"xx",0,{"resp":"machine"})
-        output_xml = etree.tostring(so.tree, encoding=str)
+        output_xml = etree.tostring(so.tree)
         expected_out = '<W><text type="a"><xx resp="machine">A</xx> B C</text></W>'
+        self.assertTrue(expected_out == output_xml)
+
+    def test_add_annotation_2(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff.from_lxml_tree(tree)
+        so.add_annotation(0,1,"xx",0,{"resp":"machine"})
+        so.add_annotation(2,3,"xx",0,{"resp":"machine"})
+        output_xml = etree.tostring(so.tree)
+        expected_out = '<W><text type="a"><xx resp="machine">A</xx> <xx resp="machine">B</xx> C</text></W>'
+        self.assertTrue(expected_out == output_xml)
+
+    def test_add_annotation_3(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff.from_lxml_tree(tree)
+        # so.add_annotation(0,1,"xx",0,{"resp":"machine"})
+        so.add_annotation(2,3,"xx",0,{"resp":"machine"})
+        output_xml = etree.tostring(so.tree)
+        expected_out = '<W><text type="a">A <xx resp="machine">B</xx> C</text></W>'
+        self.assertTrue(expected_out == output_xml)
+
+    def test_add_annotation_4(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff.from_lxml_tree(tree)
+        # so.add_annotation(0,1,"xx",0,{"resp":"machine"})
+        so.add_annotation(2,3,"xx",0,{"resp":"machine"})
+        so.add_annotation(2,3,"vv",1,{"resp":"machine"})
+        output_xml = etree.tostring(so.tree)
+        expected_out = '<W><text type="a">A <xx resp="machine"><vv resp="machine">B</vv></xx> C</text></W>'
+        print("")
+        print(output_xml)
+        print(expected_out)
         self.assertTrue(expected_out == output_xml)
 
     def test_is_duplicate_annotation(self):
