@@ -5,9 +5,8 @@ from .tree_to_standoff import tree_to_standoff
 from .standoff_to_tree import standoff_to_tree
 
 
-def load(fname):
-    with open(fname, "r") as fin:
-        tree = etree.fromstring(fin.read())
+def load(fp):
+    tree = etree.fromstring(fp.read())
     return Standoff.from_lxml_tree(tree)
 
 
@@ -146,9 +145,8 @@ class Standoff:
                 return True
         return False
      
-    def save(self, fname):
-        with open(fname, "w") as fout:
-            fout.write(etree.tostring(self.tree))
+    def save(self, fp):
+        fp.write(etree.tostring(self.tree))
 
     
         
