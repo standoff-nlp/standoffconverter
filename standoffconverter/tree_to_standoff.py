@@ -1,4 +1,14 @@
 def tree_to_standoff(tree):
+    """traverse the tree and create a standoff representation.
+
+    arguments:
+        tree -- the root element of an lxml etree
+
+    returns:
+        plain (str) -- the plain text of the tree
+        standoffs (list) -- the list of standoff annotations
+        tree_standoff_link (dict) --- the link from tree elements (keys) to standoff annotations (values)
+    """
     stand_off_props = {}
     plain = []
 

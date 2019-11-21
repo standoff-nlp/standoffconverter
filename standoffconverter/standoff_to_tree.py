@@ -32,9 +32,18 @@ def get_order_for_traversal(so):
 
 
 def standoff_to_tree(so):
+    """convert the standoff representation to a etree representation
+
+    arguments:
+        so -- standoff object
+
+    returns:
+        tree (str) -- the root element of the resulting tree
+        tree_standoff_link (dict) --- the link from tree elements (keys) to standoff annotations (values)
+    """
     
     order = get_order_for_traversal(so)
-
+    tree_standoff_link = {}
     pos_to_so = [[] for _ in range(len(so.plain))]
 
     for c_so in order:
@@ -49,6 +58,7 @@ def standoff_to_tree(so):
             c_child = c_parents[i_parent+1].el
             if c_child not in c_parent:
                 c_parent.append(c_child)
+                tree_standoff_link[c_child] = c_parents[i_parent+1].so
         if len(c_parents[-1].el) == 0:
             if c_parents[-1].el.text is None:
                 c_parents[-1].el.text = ""
@@ -60,4 +70,6 @@ def standoff_to_tree(so):
             c_parents[-1].el[-1].tail += so.plain[i]
 
     root = pos_to_so[0][0].el.getroottree().getroot()
-    return root
+    tree_standoff_link[root] = pos_to_so[0][0].so
+
+    return root, tree_standoff_link

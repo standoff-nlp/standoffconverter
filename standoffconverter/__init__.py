@@ -1,11 +1,17 @@
 import numpy as np
 from lxml import etree
 
-from .tree_to_standoff import tree_to_standoff
-from .standoff_to_tree import standoff_to_tree
+from .tree_to_standoff import tree_to_standoff as tts
+from .standoff_to_tree import standoff_to_tree as stt
 
 
 def load(fp):
+    """read from file handler and create an lxml tree from it. 
+    Then create a standoff object and instantiate it.
+
+    arguments:
+    fp -- file handler
+    """
     tree = etree.fromstring(fp.read())
     return Standoff.from_lxml_tree(tree)
 
@@ -76,19 +82,19 @@ class Standoff:
         arguments:
         tree -- the lxml object
         """
-        plain, standoffs, link = tree_to_standoff(tree)
+        plain, standoffs, link = tts(tree)
         return cls(standoffs, plain, tree, link)
 
     def __iter__(self):
         for attr in self.standoffs:
             yield attr, self.plain[attr["begin"]:attr["end"]]
 
-    def synchronize_representations(self, reference):
+    def __synchronize_representations(self, reference):
 
         if reference == "standoff":
-            self.tree = standoff_to_tree(self)
+            self.tree, self.tree_standoff_link = stt(self)
         elif reference == "tree":
-            self.plain, self.standoffs, self.tree_standoff_link = tree_to_standoff(self.tree)
+            self.plain, self.standoffs, self.tree_standoff_link = tts(self.tree)
         else:
             raise ValueError("reference unknown.")
 
@@ -114,7 +120,7 @@ class Standoff:
                 "attrib": attribute,
                 "depth": depth if depth is not None else 0
             })
-        self.synchronize_representations(reference="standoff")
+        self.__synchronize_representations(reference="standoff")
 
     def is_duplicate_annotation(self, begin, end, tag, attribute):
         """check whether this annotation already in self.standoffs
@@ -146,6 +152,11 @@ class Standoff:
         return False
      
     def save(self, fp):
+        """save the current self.tree as XML String to the file handler.
+
+        arguments:
+        fp -- file handler
+        """
         fp.write(etree.tostring(self.tree))
 
     

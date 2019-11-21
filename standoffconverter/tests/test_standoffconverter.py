@@ -26,14 +26,16 @@ file_xml2 = os.path.join(os.path.dirname(__file__), 'xml2.xml')
 class TestStandoffConverter(unittest.TestCase):
 
     def test_load(self):
-        so = standoffconverter.load(file_xml1)
-        self.assertTrue(so.plain == "A B C")
+        with open(file_xml1, "rb") as fin:
+            so = standoffconverter.load(fin)
+            self.assertTrue(so.plain == "A B C")
 
     def test_save(self):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff.from_lxml_tree(tree)
         
-        so.save(file_xml2)
+        with open(file_xml2, "wb") as fout:
+            so.save(fout)
         
         with open(file_xml2) as fin:
             tree = etree.fromstring(fin.read())
@@ -58,7 +60,7 @@ class TestStandoffConverter(unittest.TestCase):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff.from_lxml_tree(tree)
         so.add_annotation(0,1,"xx",0,{"resp":"machine"})
-        output_xml = etree.tostring(so.tree)
+        output_xml = etree.tostring(so.tree).decode("utf-8")
         expected_out = '<W><text type="a"><xx resp="machine">A</xx> B C</text></W>'
         self.assertTrue(expected_out == output_xml)
 
@@ -67,7 +69,7 @@ class TestStandoffConverter(unittest.TestCase):
         so = standoffconverter.Standoff.from_lxml_tree(tree)
         so.add_annotation(0,1,"xx",0,{"resp":"machine"})
         so.add_annotation(2,3,"xx",0,{"resp":"machine"})
-        output_xml = etree.tostring(so.tree)
+        output_xml = etree.tostring(so.tree).decode("utf-8")
         expected_out = '<W><text type="a"><xx resp="machine">A</xx> <xx resp="machine">B</xx> C</text></W>'
         self.assertTrue(expected_out == output_xml)
 
@@ -76,7 +78,7 @@ class TestStandoffConverter(unittest.TestCase):
         so = standoffconverter.Standoff.from_lxml_tree(tree)
         # so.add_annotation(0,1,"xx",0,{"resp":"machine"})
         so.add_annotation(2,3,"xx",0,{"resp":"machine"})
-        output_xml = etree.tostring(so.tree)
+        output_xml = etree.tostring(so.tree).decode("utf-8")
         expected_out = '<W><text type="a">A <xx resp="machine">B</xx> C</text></W>'
         self.assertTrue(expected_out == output_xml)
 
@@ -86,7 +88,7 @@ class TestStandoffConverter(unittest.TestCase):
         # so.add_annotation(0,1,"xx",0,{"resp":"machine"})
         so.add_annotation(2,3,"xx",0,{"resp":"machine"})
         so.add_annotation(2,3,"vv",1,{"resp":"machine"})
-        output_xml = etree.tostring(so.tree)
+        output_xml = etree.tostring(so.tree).decode("utf-8")
         expected_out = '<W><text type="a">A <xx resp="machine"><vv resp="machine">B</vv></xx> C</text></W>'
         print("")
         print(output_xml)
