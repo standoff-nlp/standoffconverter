@@ -90,9 +90,6 @@ class TestStandoffConverter(unittest.TestCase):
         so.add_annotation(2,3,"vv",1,{"resp":"machine"})
         output_xml = etree.tostring(so.tree).decode("utf-8")
         expected_out = '<W><text type="a">A <xx resp="machine"><vv resp="machine">B</vv></xx> C</text></W>'
-        print("")
-        print(output_xml)
-        print(expected_out)
         self.assertTrue(expected_out == output_xml)
 
     def test_is_duplicate_annotation(self):
