@@ -10,7 +10,7 @@ def load(fp):
     Then create a standoff object and instantiate it.
 
     arguments:
-    fp -- file handler
+        fp: file handler
     """
     tree = etree.fromstring(fp.read())
     return Standoff.from_lxml_tree(tree)
@@ -56,6 +56,8 @@ class Filter:
             )
             yield filtered_string, standoff
 
+    def __len__(self):
+        return len(self.find_state)
 
     def copy(self):
         '''
@@ -80,7 +82,7 @@ class Standoff:
         """create a standoff representation from an lxml tree.
 
         arguments:
-        tree -- the lxml object
+            tree: the lxml object
         """
         plain, standoffs, link = tts(tree)
         return cls(standoffs, plain, tree, link)
@@ -102,15 +104,12 @@ class Standoff:
         """add a standoff annotation.
 
         arguments:
-        begin (int) -- the beginning character index
-        end (int) -- the ending character index
-        tag (str) -- the name of the xml tag
-        depth (int) -- tree depth of the attribute. for the same begin and end, 
-                 a lower depth annotation includes a higher depth annotation
-        attribute (dict) -- attrib of the lxml
-
-        keyword arguments:
-        unique (bool) -- whether to allow for duplicate annotations
+            begin (int): the beginning character index
+            end (int): the ending character index
+            tag (str): the name of the xml tag
+            depth (int): tree depth of the attribute. for the same begin and end, a lower depth annotation includes a higher depth annotation
+            attribute (dict): attrib of the lxml
+            unique (bool): whether to allow for duplicate annotations
         """
         if not unique or not self.is_duplicate_annotation(begin, end, tag, attribute):
             self.standoffs.append({
@@ -122,17 +121,22 @@ class Standoff:
             })
         self.__synchronize_representations(reference="standoff")
 
+    def remove_annotation(self):
+        '''remove a standoff annotation
+        '''
+        raise NotImplementedError()
+
     def is_duplicate_annotation(self, begin, end, tag, attribute):
         """check whether this annotation already in self.standoffs
         
         arguments:
-        begin (int) -- the beginning character index
-        end (int) -- the ending character index
-        tag (str) -- the name of the xml tag
-        attribute (dict) -- attrib of the lxml
+            begin (int): the beginning character index
+            end (int): the ending character index
+            tag (str): the name of the xml tag
+            attribute (dict): attrib of the lxml
 
         returns:
-        bool -- True if annotation already exists
+            bool: True if annotation already exists
         """
 
         def attrs_equal(attr_a, attr_b):
@@ -155,7 +159,7 @@ class Standoff:
         """save the current self.tree as XML String to the file handler.
 
         arguments:
-        fp -- file handler
+            fp: file handler
         """
         fp.write(etree.tostring(self.tree))
 
