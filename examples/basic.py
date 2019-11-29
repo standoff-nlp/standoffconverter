@@ -1,5 +1,5 @@
 from lxml import etree
-import standoffconverter
+import standoffconverter.Converter as Co
 
 input_xml = '''
 <W>
@@ -24,14 +24,14 @@ if __name__ == "__main__":
       
       tree = etree.fromstring(input_xml)
       
-      so = standoffconverter.Standoff.from_lxml_tree(tree)
+      converter = Co.from_tree(tree)
       
       t = "aliquyam"
-      begin = so.plain.index(t)
+      begin = converter.plain.index(t)
       end = begin + len(t)
-      so.add_annotation(begin, end, "del", 0, {"resp": "David Lassner"})
+      converter.add_annotation(begin, end, "del", 0, {"resp": "David Lassner"})
 
-      new_xml = etree.tostring(so.tree, encoding=str)
+      new_xml = etree.tostring(converter.to_tree(), encoding=str)
 
       print("\n\n####\nOUTPUT XML")
 

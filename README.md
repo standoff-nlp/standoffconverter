@@ -8,7 +8,7 @@ Given a bunch of XML files (e.g. standard TEI files), I would like to add new an
 import standoffconverter.Converter as Co
 
 # 1. load the original TEI file and convert it to standoff format
-converter = Co.from_lxml_tree(some_xml_tree)
+converter = Co.from_tree(some_xml_tree)
 
 # 2. create new annotations (automatically) and add them to the original
 converter.add_annotation(begin, end, "SOMETAG", 0, {})

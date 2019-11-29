@@ -137,6 +137,14 @@ class AnnotationPair:
         found_els = self.el.xpath(*args, **kwargs)
         return [self.converter.el2pair[el] for el in found_els]
 
+    def get_text(self):
+        """Get the text inside the annotation
+
+        returns:
+            (str): text within the annotation
+        """
+        return self.converter.plain[self.get_begin():self.get_end()]
+
     def get_so(self):
         """Get the so of the AnnotationPair
 
@@ -243,9 +251,12 @@ class Converter:
         self.tree = tree
         if so2pair is None or el2pair is None:
             self.so2pair, self.el2pair = self.__get_lookups()
+        
+        if self.tree is not None:
+            self.root_ap = self.el2pair[self.tree]
 
     @classmethod
-    def from_lxml_tree(cls, tree):
+    def from_tree(cls, tree):
         """create a standoff representation from an lxml tree.
 
         arguments:
@@ -257,6 +268,8 @@ class Converter:
         self.plain = plain
         self.collection = collection
         self.so2pair, self.el2pair = self.__get_lookups()
+        self.root_ap = self.el2pair[self.tree]
+
         return self
 
     def to_tree(self):

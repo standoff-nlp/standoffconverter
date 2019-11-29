@@ -26,14 +26,14 @@ file_xml2 = os.path.join(os.path.dirname(__file__), 'xml2.xml')
 
 class TestStandoffConverter(unittest.TestCase):
 
-    def test_from_lxml_tree_plain(self):
+    def test_from_tree_plain(self):
         tree = etree.fromstring(input_xml1)
-        so = standoffconverter.Converter.from_lxml_tree(tree)
+        so = standoffconverter.Converter.from_tree(tree)
         self.assertTrue(so.plain == "A B C")
     
-    def test_from_lxml_tree_standoff(self):
+    def test_from_tree_standoff(self):
         tree = etree.fromstring(input_xml1)
-        so = standoffconverter.Converter.from_lxml_tree(tree)
+        so = standoffconverter.Converter.from_tree(tree)
         self.assertTrue(so.collection[0].get_begin() == 0)
         self.assertTrue(so.collection[-1].get_begin() == 0)
         self.assertTrue(so.collection[0].get_end() == len(so.plain))
@@ -41,7 +41,7 @@ class TestStandoffConverter(unittest.TestCase):
 
     def test_add_annotation_1(self):
         tree = etree.fromstring(input_xml1)
-        so = standoffconverter.Converter.from_lxml_tree(tree)
+        so = standoffconverter.Converter.from_tree(tree)
         so.add_annotation(0,1,"xx",0,{"resp":"machine"})
         output_xml = etree.tostring(so.tree).decode("utf-8")
         expected_out = '<W><text type="a"><xx resp="machine">A</xx> B C</text></W>'
@@ -49,7 +49,7 @@ class TestStandoffConverter(unittest.TestCase):
 
     def test_add_annotation_2(self):
         tree = etree.fromstring(input_xml1)
-        so = standoffconverter.Converter.from_lxml_tree(tree)
+        so = standoffconverter.Converter.from_tree(tree)
         so.add_annotation(0,1,"xx",0,{"resp":"machine"})
         so.add_annotation(2,3,"xx",0,{"resp":"machine"})
         output_xml = etree.tostring(so.tree).decode("utf-8")
@@ -58,7 +58,7 @@ class TestStandoffConverter(unittest.TestCase):
 
     def test_add_annotation_3(self):
         tree = etree.fromstring(input_xml1)
-        so = standoffconverter.Converter.from_lxml_tree(tree)
+        so = standoffconverter.Converter.from_tree(tree)
         # so.add_annotation(0,1,"xx",0,{"resp":"machine"})
         so.add_annotation(2,3,"xx",0,{"resp":"machine"})
         output_xml = etree.tostring(so.tree).decode("utf-8")
@@ -67,7 +67,7 @@ class TestStandoffConverter(unittest.TestCase):
 
     def test_add_annotation_4(self):
         tree = etree.fromstring(input_xml1)
-        so = standoffconverter.Converter.from_lxml_tree(tree)
+        so = standoffconverter.Converter.from_tree(tree)
         # so.add_annotation(0,1,"xx",0,{"resp":"machine"})
         so.add_annotation(2,3,"xx",0,{"resp":"machine"})
         so.add_annotation(2,3,"vv",1,{"resp":"machine"})
@@ -77,14 +77,14 @@ class TestStandoffConverter(unittest.TestCase):
 
     def test_is_duplicate_annotation(self):
         tree = etree.fromstring(input_xml1)
-        so = standoffconverter.Converter.from_lxml_tree(tree)
+        so = standoffconverter.Converter.from_tree(tree)
         self.assertTrue(
             so.is_duplicate_annotation(0,len(so.plain), "W", {})
         )
 
     def test_remove_annotation(self):
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
         to_remove = converter.collection[0]
         converter.remove_annotation(to_remove)
         output_xml = etree.tostring(converter.tree).decode("utf-8")
@@ -96,7 +96,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_transaction(self):
 
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
 
         with converter.transaction("standoff"):
             converter.add_annotation(0,1,"xx",0,{"resp":"machine"})
@@ -109,7 +109,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_to_tree(self):
 
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
 
         self.assertTrue(
             converter.to_tree() == tree
@@ -117,7 +117,7 @@ class TestStandoffConverter(unittest.TestCase):
 
     def test_to_json(self):
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
         json = converter.to_json()
         expected_output = '[{"begin": 0, "end": 5, "attrib": {}, "depth": 0, "tag": "W"}, {"begin": 0, "end": 5, "attrib": {"type": "a"}, "depth": 1, "tag": "text"}]'
         self.assertTrue(
@@ -127,7 +127,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_annotationpair_from_so(self):
         
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
 
         pair = converter.collection[0]
         orig_el = pair.get_el()
@@ -146,7 +146,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_annotationpair_get_so(self):
         
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
 
         self.assertTrue(
             converter.collection[0].get_so() == converter.collection[0].so
@@ -155,7 +155,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_annotationpair_get_el(self):
         
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
 
         self.assertTrue(
             converter.collection[0].get_el() == converter.collection[0].el
@@ -164,7 +164,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_annotationpair_xpath(self):
         
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
 
         root_el = converter.tree
         root_pair = converter.el2pair[root_el]
@@ -178,7 +178,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_annotationpair_get_tag(self):
         
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
 
         self.assertTrue(
             converter.collection[0].get_tag() == converter.collection[0].so.tag
@@ -187,7 +187,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_annotationpair_get_depth(self):
         
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
 
         self.assertTrue(
             converter.collection[0].get_depth() == converter.collection[0].so.depth
@@ -196,7 +196,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_annotationpair_get_attrib(self):
         
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
 
         true_attrib = converter.collection[0].so.attrib
         new_attrib = converter.collection[0].get_attrib()
@@ -213,7 +213,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_annotationpair_get_begin(self):
         
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
 
 
         self.assertTrue(
@@ -223,7 +223,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_annotationpair_get_end(self):
         
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
 
         self.assertTrue(
             converter.collection[0].get_end() == converter.collection[0].so.end
@@ -232,7 +232,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_annotationpair_get_dict(self):
         
         tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_lxml_tree(tree)
+        converter = standoffconverter.Converter.from_tree(tree)
         true_dict = {
             "tag" : "text",
             "attrib": {
