@@ -79,7 +79,7 @@ class TestStandoffConverter(unittest.TestCase):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Converter.from_tree(tree)
         self.assertTrue(
-            so.is_duplicate_annotation(0,len(so.plain), "W", {})
+            so._Converter__is_duplicate_annotation(0,len(so.plain), "W", {})
         )
 
     def test_remove_annotation(self):
