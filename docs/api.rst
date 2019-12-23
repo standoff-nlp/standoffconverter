@@ -3,7 +3,7 @@ API
 
 .. autoclass:: standoffconverter.Converter
     
-    .. automethod:: from_lxml_tree
+    .. automethod:: from_tree
     .. automethod:: to_tree
     .. automethod:: to_json
     .. automethod:: add_annotation
@@ -18,6 +18,7 @@ API
     .. automethod:: from_so
     .. automethod:: xpath
     .. automethod:: get_so
+    .. automethod:: get_text
     .. automethod:: get_el
     .. automethod:: get_dict
     .. automethod:: get_tag
