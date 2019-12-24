@@ -17,6 +17,7 @@ API
     
     .. automethod:: from_so
     .. automethod:: xpath
+    .. automethod:: find
     .. automethod:: get_so
     .. automethod:: get_text
     .. automethod:: get_el

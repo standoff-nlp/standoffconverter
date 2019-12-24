@@ -175,6 +175,20 @@ class TestStandoffConverter(unittest.TestCase):
             result[0].get_tag() == "text"
         )
 
+    def test_annotationpair_find(self):
+        
+        tree = etree.fromstring(input_xml1)
+        converter = standoffconverter.Converter.from_tree(tree)
+
+        root_el = converter.tree
+        root_pair = converter.el2pair[root_el]
+
+        result = root_pair.find(".//text")
+
+        self.assertTrue(
+            result.get_tag() == "text"
+        )
+
     def test_annotationpair_get_tag(self):
         
         tree = etree.fromstring(input_xml1)

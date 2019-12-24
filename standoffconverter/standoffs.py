@@ -134,8 +134,22 @@ class AnnotationPair:
         return cls(so, el, converter)
 
     def xpath(self, *args, **kwargs):
+        """Wrapper for `xpath` of the el
+
+        returns
+            (list): List of AnnotationPairs
+        """
         found_els = self.el.xpath(*args, **kwargs)
         return [self.converter.el2pair[el] for el in found_els]
+
+    def find(self, *args, **kwargs):
+        """Wrapper for `find` of the el
+
+        returns
+            (list): List of AnnotationPairs
+        """
+        found_el = self.el.find(*args, **kwargs)
+        return self.converter.el2pair[found_el]
 
     def get_text(self):
         """Get the text inside the annotation
