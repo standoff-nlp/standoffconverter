@@ -146,7 +146,7 @@ class AnnotationPair:
         """Wrapper for `find` of the el
 
         returns
-            (list): List of AnnotationPairs
+            (AnnotationPairs): The found annotation pair
         """
         found_el = self.el.find(*args, **kwargs)
         return self.converter.el2pair[found_el]
