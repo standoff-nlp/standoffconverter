@@ -16,3 +16,5 @@ converter.add_annotation(begin, end, "SOMETAG", 0, {})
 # 3. store the modified XML
 new_tree = converter.to_tree()
 ```
+# Documentation
+[https://standoffconverter.readthedocs.io](https://standoffconverter.readthedocs.io/)
