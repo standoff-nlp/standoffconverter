@@ -20,6 +20,7 @@ input_xml3 = b'''<W>
         <p type="b">The answer is 48.</p>
     </text>
 </W>'''
+input_xml4 = b'''<W><text type="a">The <p>answer</p> is 42.</text></W>'''
 
 file_xml1 = os.path.join(os.path.dirname(__file__), 'xml1.xml')
 file_xml2 = os.path.join(os.path.dirname(__file__), 'xml2.xml')
@@ -83,28 +84,15 @@ class TestStandoffConverter(unittest.TestCase):
         )
 
     def test_remove_annotation(self):
-        tree = etree.fromstring(input_xml1)
+        tree = etree.fromstring(input_xml4)
         converter = standoffconverter.Converter.from_tree(tree)
-        to_remove = converter.collection[0]
+        to_remove = [tr for tr in converter.collection if tr.el.tag == "p"][0]
         converter.remove_annotation(to_remove)
         output_xml = etree.tostring(converter.tree).decode("utf-8")
-        expected_output = '<text type="a">A B C</text>'
+        expected_output = '<W><text type="a">The answer is 42.</text></W>'
         self.assertTrue(
             output_xml == expected_output
         )
-
-    def test_transaction(self):
-
-        tree = etree.fromstring(input_xml1)
-        converter = standoffconverter.Converter.from_tree(tree)
-
-        with converter.transaction("standoff"):
-            converter.add_annotation(0,1,"xx",0,{"resp":"machine"})
-            converter.add_annotation(2,3,"xx",0,{"resp":"machine"})
-
-        output_xml = etree.tostring(converter.tree).decode("utf-8")
-        expected_out = '<W><text type="a"><xx resp="machine">A</xx> <xx resp="machine">B</xx> C</text></W>'
-        self.assertTrue(expected_out == output_xml)
 
     def test_to_tree(self):
 

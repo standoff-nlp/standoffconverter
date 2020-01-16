@@ -1,64 +1,105 @@
 from lxml import etree
 import json
-from contextlib import contextmanager
 from .utils import create_el_from_so, is_child_of
 
-def __get_order_for_traversal(so):
-    return sorted(
-        sorted(
-            sorted(
-                so.collection,
-                key=lambda x: x.get_depth()
-            ),
-            key=lambda x:  (x.get_begin() - x.get_end())
-        ),
-        key=lambda x: x.get_begin()
+
+def get_closest_parent_of_interval_and_its_children(begin, end, depth, collection):
+    
+    closest_parent = None
+    children = []
+    for pair in __get_order_for_traversal(collection, key=lambda x: x.so):
+        if __is_parent(begin, end, depth, pair.so):
+            closest_parent = pair
+            children = []
+        else:
+            if closest_parent is not None:
+                if __is_parent(pair.so.begin, pair.so.end, pair.so.depth, closest_parent.so):
+                    children.append(pair.so)
+                else:
+                    # if we already found a parent and currently `pair` is not a parent,
+                    # then, we already found our closest parent and we can break
+                    break
+
+    return closest_parent, children
+        
+
+def __is_parent(begin, end, depth, so):
+    return (
+            (begin > so.begin and end <= so.end)
+        or  (begin >= so.begin and end < so.end)
+        or  (
+                    (begin == so.begin and end == so.end)
+                and (depth > so.depth)
+            )   
     )
 
 
-def standoff_to_tree(converter):
+def __get_order_for_traversal(so, key=lambda x: x):
+    return sorted(
+        sorted(
+            sorted(
+                so,
+                key=lambda x: key(x).depth
+            ),
+            key=lambda x:  (key(x).begin - key(x).end)
+        ),
+        key=lambda x: key(x).begin
+    )
+
+
+def standoff_to_tree(plain, collection):
     """convert the standoff representation to a etree representation
 
     arguments:
-        so -- standoff object
+        plain -- plain text
+        collection -- a list of so elements
 
     returns:
-        tree (str) -- the root element of the resulting tree
+        tree -- the root element of the resulting tree
+        new_collection (list) -- the new collection of pairs
     """
-    order = __get_order_for_traversal(converter)
+    order = __get_order_for_traversal(collection)
 
-    pos_to_so = [[] for _ in range(len(converter.plain))]
+    pos_to_so = [[] for _ in range(len(plain))]
+    new_collection = []
 
-    for c_pair in order:
+    for c_so in order:
+        c_pair = AnnotationPair(c_so, None, None)
+        
+        new_collection.append(c_pair)
         
         c_pair.el = create_el_from_so(c_pair.so)
 
         for pos in range(c_pair.so.begin, c_pair.so.end):
             pos_to_so[pos].append(c_pair)
     
-    for i in range(len(converter.plain)):
+    for i in range(len(plain)):
         c_parents = pos_to_so[i]
         for i_parent in range(len(c_parents)-1):
             c_parent = c_parents[i_parent].el
             c_child = c_parents[i_parent+1].el
             if c_child not in c_parent:
                 c_parent.append(c_child)
-        if len(c_parents[-1].el) == 0:
-            if c_parents[-1].el.text is None:
-                c_parents[-1].el.text = ""
+        if len(c_parents) > 0:
+            if len(c_parents[-1].el) == 0:
+                if c_parents[-1].el.text is None:
+                    c_parents[-1].el.text = ""
 
-            c_parents[-1].el.text += converter.plain[i]
-        else:
-            if c_parents[-1].el[-1].tail is None:
-                c_parents[-1].el[-1].tail = ""
-            c_parents[-1].el[-1].tail += converter.plain[i]
+                c_parents[-1].el.text += plain[i]
+            else:
+                if c_parents[-1].el[-1].tail is None:
+                    c_parents[-1].el[-1].tail = ""
+                c_parents[-1].el[-1].tail += plain[i]
 
-    root = pos_to_so[0][0].el.getroottree().getroot()
+    root = None
+    for pos in pos_to_so:
+        if len(pos) > 0:
+            root = pos[0].el.getroottree().getroot()
+    
+    return root, new_collection
 
-    return root
 
-
-def tree_to_standoff(tree, converter):
+def tree_to_standoff(tree):
     """traverse the tree and create a standoff representation.
 
     arguments:
@@ -79,10 +120,10 @@ def tree_to_standoff(tree, converter):
             "attrib": el.attrib,
             "depth": depth
         }
-        so = StandoffElement(dict_)
-        pair = AnnotationPair(so, el, converter)
+
+        so =  StandoffElement(dict_)
         
-        stand_off_props[el] = pair
+        stand_off_props[el] = so
 
         if el.text is not None:
             plain += [char for char in el.text]
@@ -91,13 +132,13 @@ def tree_to_standoff(tree, converter):
             __traverse_and_parse(gen, plain, stand_off_props, depth=depth+1)
 
         depth -= 1
-        stand_off_props[el].so.end = len(plain)
+        stand_off_props[el].end = len(plain)
 
         if el.tail is not None:
             plain += [char for char in el.tail]
 
     __traverse_and_parse(tree, plain, stand_off_props)
-    return "".join(plain), [v for k,v in stand_off_props.items()]
+    return "".join(plain), [(el,so) for el,so in stand_off_props.items()]
 
 
 class AnnotationPair:
@@ -277,7 +318,8 @@ class Converter:
             tree: the lxml object
         """
         self = cls()
-        plain, collection = tree_to_standoff(tree, self)
+        plain, collection = tree_to_standoff(tree)
+        collection = [AnnotationPair(so, el, self) for el, so in collection]
         self.tree = tree
         self.plain = plain
         self.collection = collection
@@ -309,17 +351,6 @@ class Converter:
     def __len__(self):
         return len(self.collection)
 
-    def __synchronize_representations(self, reference):
-
-        if reference == "standoff":
-            self.tree = standoff_to_tree(self)
-        elif reference == "tree":
-            self.plain, self.collection = tree_to_standoff(self.tree, self)
-        else:
-            raise ValueError("reference unknown.")
-
-        self.so2pair, self.el2pair = self.__get_lookups()
-
     def __get_lookups(self):
         
         so2pair = {}
@@ -332,7 +363,7 @@ class Converter:
 
         return so2pair, el2pair
 
-    def add_annotation(self, begin=None, end=None, tag=None, depth=None, attribute=None, unique=True, synchronize=True):
+    def add_annotation(self, begin=None, end=None, tag=None, depth=0, attribute=None, unique=True):
         """add a standoff annotation.
 
         arguments:
@@ -342,51 +373,84 @@ class Converter:
             depth (int): tree depth of the attribute. for the same begin and end, a lower depth annotation includes a higher depth annotation
             attribute (dict): attrib of the lxml
             unique (bool): whether to allow for duplicate annotations
-            synchronize (bool): Whether to synchronize other representations (self.tree, the lookups) when self.collection is updated.
         """
         if not unique or not self.__is_duplicate_annotation(begin, end, tag, attribute):
-            dict_ = {
-                "begin": begin,
-                "end": end,
-                "tag": tag,
-                "attrib": attribute,
-                "depth": depth if depth is not None else 0
-            }
-            
-            so = StandoffElement(dict_)
-            pair = AnnotationPair.from_so(so, self)
-            self.collection.append(pair)
-        if synchronize:
-            self.__synchronize_representations(reference="standoff")
 
-    def remove_annotation(self, so, synchronize=True):
+            parent, children = get_closest_parent_of_interval_and_its_children(
+                            begin, end, depth, self.collection)
+
+            if parent is None:
+                raise NotImplementedError("currently not possible to add root element.")
+            elif parent.el.getparent() is None:
+                raise NotImplementedError("currently not possible to add direct children of root elements.")
+            else:
+                
+                dict_ = {
+                    "begin": begin,
+                    "end": end,
+                    "tag": tag,
+                    "attrib": attribute,
+                    "depth": depth
+                }
+                
+                so = StandoffElement(dict_)
+
+                tree, new_collection = standoff_to_tree(self.plain, children + [so, parent.so])
+                new_parent = new_collection[0]
+                new_parent.el.tail = parent.el.tail
+                # replace subtree
+                parent.el.getparent().replace(parent.el, new_parent.el)
+                
+                # remove old items from collection
+                for it in children + [parent.so]:
+                    self.collection.remove(self.so2pair[it])
+
+                # add new items to collection
+                for pair in new_collection:
+                    pair.converter = self
+                    self.collection.append(pair)
+
+                self.so2pair, self.el2pair = self.__get_lookups()
+
+
+    def remove_annotation(self, pair):
         '''remove a standoff annotation
 
         arguments:
             so (StandoffElement): that is to be removed.
-            synchronize (bool): Whether to synchronize other representations (self.tree, the lookups) when self.collection is updated.
         '''
 
-        if so not in self.collection:
+        if pair not in self.collection:
             raise ValueError("Annotation not in collection")
-        self.collection.remove(so)
         
-        if synchronize:
-            self.__synchronize_representations(reference="standoff")
+        parent, children = get_closest_parent_of_interval_and_its_children(
+                            pair.so.begin, pair.so.end, pair.so.depth, self.collection)
+
+        if parent is None:
+            raise NotImplementedError("currently not possible to remove root element.")
+        elif parent.el.getparent() is None:
+            raise NotImplementedError("currently not possible to remove direct children of root elements.")
+        else:
+            children.remove(pair.so)
+
+            tree, new_collection = standoff_to_tree(self.plain, children + [parent.so])
+            
+            new_parent = new_collection[0]
+            new_parent.el.tail = parent.el.tail
+            # replace subtree
+            parent.el.getparent().replace(parent.el, new_parent.el)
+
+            for it in children + [parent.so]:
+                self.collection.remove(self.so2pair[it])
+
+            self.collection.remove(pair)
+
+            for pair in new_collection:
+                pair.converter = self
+                self.collection.append(pair)
+
+            self.so2pair, self.el2pair = self.__get_lookups()
     
-    @contextmanager
-    def transaction(self, reference):
-        '''delay the synchronization until all modifications to either the "standoff" or the "tree" as been finished to save unwanted compute for each individual modification. You should not modify both representations in one transaction.
-
-        arguments:
-            reference (str): name of the representation that holds the updated information (either "standoff" or "tree").
-        '''
-        try:
-            yield
-        finally:
-            self.__synchronize_representations(reference)
-
-
     def __is_duplicate_annotation(self, begin, end, tag, attribute):
         """check whether this annotation already in self.collection
         
