@@ -275,7 +275,7 @@ class StandoffElement:
     """Wrapper class for the basic standoff properties."""
     def __init__(self, dict_):
         self.tag = dict_["tag"] if "tag" in dict_ else None
-        self.attrib = dict(dict_["attrib"]) if "attrib" in dict_ else None
+        self.attrib = dict(dict_["attrib"]) if "attrib" in dict_ else dict_
         self.begin = dict_["begin"] if "begin" in dict_ else None
         self.end = dict_["end"] if "end" in dict_ else None
         self.depth = dict_["depth"] if "depth" in dict_ else None
