@@ -1,2 +1,2 @@
-from .standoffs import Converter, AnnotationPair
+from .standoffs import Converter
 
