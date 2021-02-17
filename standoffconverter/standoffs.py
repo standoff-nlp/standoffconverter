@@ -59,7 +59,16 @@ class Converter:
 
     @property
     def collapsed_table(self):
-        raise NotImplementedError()
+        self.ensure_cache()
+        grouping = self.table.groupby(lambda x: tuple(self.table.iloc[x].sos), sort=False)
+
+        collapsed = []
+        for group, subdf in grouping:
+            collapsed.append({
+                "group":group,
+                "text":"".join(subdf.text)
+            })
+        return pd.DataFrame(collapsed)
 
     def get_parents(self, begin, end, depth=None):
         
@@ -110,15 +119,14 @@ class Converter:
         
         # First, stay in the standoff world
         new_el = StandoffElement(tag_dict)
-        
-        
 
-        parents = self.get_parents(new_el.begin, new_el.end)
+        parents = self.get_parents(new_el.begin, new_el.end, new_el.depth)
         closest_parent = parents[-1]
 
         new_el.depth = closest_parent.depth + 1
 
-        children = self.get_children(new_el.begin, new_el.end)
+        children = self.get_children(new_el.begin, new_el.end, new_el.depth)
+        
         for child in children:
             child.depth += 1
         
@@ -127,7 +135,6 @@ class Converter:
         for irow, row in self.table.iloc[closest_parent.begin:closest_parent.end].iterrows():
             for iso, so in enumerate(row.sos):
                 if so.depth == closest_parent.depth:
-
                     if irow >= new_el.begin and irow < new_el.end:
                         row.sos.insert(iso+1, new_el)
 
@@ -153,10 +160,11 @@ class Converter:
 
         # and replace the subtree
         if len(second_parents) == 0:
+            new_closest_parent_el.tail = self.text_el.tail
             self.text_el = new_closest_parent_el
         else:
             second_parent = second_parents[-1]
-
+            new_closest_parent_el.tail = self.so2el[closest_parent].tail    
             self.so2el[second_parent].replace(
                 self.so2el[closest_parent],
                 new_closest_parent_el

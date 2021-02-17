@@ -62,31 +62,57 @@ class TestStandoffConverter(unittest.TestCase):
         expected_out = '<text><body><p><xx resp="machine">1</xx> <xx resp="machine">2</xx> 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text>'
         self.assertTrue(expected_out == output_xml)
 
-    # def test_add_annotation_3(self):
-    #     tree = etree.fromstring(input_xml1)
-    #     so = standoffconverter.Converter.from_tree(tree)
-    #     # so.add_annotation(0,1,"xx",0,{"resp":"machine"})
-    #     so.add_annotation(2,3,"xx",0,{"resp":"machine"})
-    #     output_xml = etree.tostring(so.tree).decode("utf-8")
-    #     expected_out = '<W><text type="a">A <xx resp="machine">B</xx> C</text></W>'
-    #     self.assertTrue(expected_out == output_xml)
+    def test_add_annotation_3(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Converter(tree)
+        so.add_inline(
+            begin=2,
+            end=3,
+            tag="xx",
+            depth=3,
+            attrib={"resp":"machine"}
+        )
+        so.add_inline(
+            begin=2,
+            end=3,
+            tag="vv",
+            depth=3,
+            attrib={"resp":"machine"}
+        )
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
 
-    # def test_add_annotation_4(self):
-    #     tree = etree.fromstring(input_xml1)
-    #     so = standoffconverter.Converter.from_tree(tree)
-    #     # so.add_annotation(0,1,"xx",0,{"resp":"machine"})
-    #     so.add_annotation(2,3,"xx",0,{"resp":"machine"})
-    #     so.add_annotation(2,3,"vv",1,{"resp":"machine"})
-    #     output_xml = etree.tostring(so.tree).decode("utf-8")
-    #     expected_out = '<W><text type="a">A <xx resp="machine"><vv resp="machine">B</vv></xx> C</text></W>'
-    #     self.assertTrue(expected_out == output_xml)
+        expected_out = '<text><body><p>1 <vv resp="machine"><xx resp="machine">2</xx></vv> 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text>'
+        self.assertTrue(expected_out == output_xml)
 
-    # def test_is_duplicate_annotation(self):
-    #     tree = etree.fromstring(input_xml1)
-    #     so = standoffconverter.Converter.from_tree(tree)
-    #     self.assertTrue(
-    #         so._Converter__is_duplicate_annotation(0,len(so.plain), "W", {})
-    #     )
+    def test_add_annotation_4(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Converter(tree)
+        so.add_inline(
+            begin=2,
+            end=3,
+            tag="xx",
+            depth=3,
+            attrib={"resp":"machine"}
+        )
+        so.add_inline(
+            begin=2,
+            end=3,
+            tag="vv",
+            depth=4,
+            attrib={"resp":"machine"}
+        )
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
+
+        expected_out = '<text><body><p>1 <xx resp="machine"><vv resp="machine">2</vv></xx> 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text>'
+        self.assertTrue(expected_out == output_xml)
+
+    def test_collapsed_table(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Converter(tree)
+        collapsed_table = so.collapsed_table
+        self.assertTrue(collapsed_table.iloc[0].text == "1 2 3 4 5 6 7 9 10")
+        self.assertTrue(collapsed_table.iloc[1].text == " 11 12 13 14")
+
 
     # def test_remove_annotation(self):
     #     tree = etree.fromstring(input_xml1)
