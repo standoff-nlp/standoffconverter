@@ -51,11 +51,24 @@ class Converter:
     
     @property
     def plain(self):
+        self.ensure_cache()
         return "".join(self.table.text)
 
     @property
     def json(self):
-        raise NotImplementedError()
+        self.ensure_cache()
+        sos = list(set([so for sos in self.table.sos for so in sos]))
+        
+        return sorted(
+            sorted(
+                sorted(
+                    sos,
+                    key=lambda x: x.depth
+                ),
+                key=lambda x:  (x.begin - x.end)
+            ),
+            key=lambda x: x.begin
+        )
 
     @property
     def collapsed_table(self):

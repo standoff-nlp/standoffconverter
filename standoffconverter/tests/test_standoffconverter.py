@@ -112,7 +112,14 @@ class TestStandoffConverter(unittest.TestCase):
         collapsed_table = so.collapsed_table
         self.assertTrue(collapsed_table.iloc[0].text == "1 2 3 4 5 6 7 9 10")
         self.assertTrue(collapsed_table.iloc[1].text == " 11 12 13 14")
-
+    
+    def test_json(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Converter(tree)
+        json = so.json
+        import pdb; pdb.set_trace()
+        self.assertTrue(collapsed_table.iloc[0].text == "1 2 3 4 5 6 7 9 10")
+        self.assertTrue(collapsed_table.iloc[1].text == " 11 12 13 14")
 
     # def test_remove_annotation(self):
     #     tree = etree.fromstring(input_xml1)
