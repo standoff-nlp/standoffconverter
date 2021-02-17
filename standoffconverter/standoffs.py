@@ -5,7 +5,7 @@ import json
 from contextlib import contextmanager
 
 class Converter:
-    """TODO: Contains a reference to the etree.Element object and the corresponding StandoffElement object to link the two representations.
+    """Contains a reference to the etree.Element object and the corresponding StandoffElement object to link the two representations.
     """
     def __init__(self, tei_tree):
         """Create a Converter from a tree element instance.
@@ -51,15 +51,20 @@ class Converter:
     
     @property
     def plain(self):
+        """Plain text string of all text inside the <text> element of the TEI XML."""
+
         self.ensure_cache()
         return "".join(self.table.text)
 
     @property
-    def json(self):
+    def standoffs(self):
+        """List of standoff elements of the <text> element fo the TEI XML. Items are traversed in depth-first preorder."""
+
         self.ensure_cache()
+
         sos = list(set([so for sos in self.table.sos for so in sos]))
         
-        return sorted(
+        sos = sorted(
             sorted(
                 sorted(
                     sos,
@@ -70,8 +75,16 @@ class Converter:
             key=lambda x: x.begin
         )
 
+        return sos
+
+    @property
+    def json(self):
+        """JSON string of standoff elements of the <text> element fo the TEI XML. Items are traversed in depth-first preorder."""
+        return json.dumps(list(map(lambda x: x.to_dict(), self.standoffs)))
+        
     @property
     def collapsed_table(self):
+        """Pandas Dataframe with standoff elements and texts aligned. text within the same element is grouped"""
         self.ensure_cache()
         grouping = self.table.groupby(lambda x: tuple(self.table.iloc[x].sos), sort=False)
 
@@ -84,7 +97,16 @@ class Converter:
         return pd.DataFrame(collapsed)
 
     def get_parents(self, begin, end, depth=None):
+        """Get all parent sos.
         
+        arguments:
+        begin (int)-- beginning character position within the XML
+        end (int)-- ending character position within the XML
+        depth (int)-- depth of current element
+
+        returns:
+            parents (list) -- list of parent elements ordered by depth (closest is last).
+        """
         filtered_table = self.table.iloc[
             max(0,begin-1):min(len(self.table),end+1)
         ]
@@ -105,7 +127,16 @@ class Converter:
         return sos
 
     def get_children(self, begin, end, depth=None):
+        """Get all children sos.
         
+        arguments:
+        begin (int)-- beginning character position within the XML
+        end (int)-- ending character position within the XML
+        depth (int)-- depth of current element
+
+        returns:
+            children (list) -- list of children elements ordered by depth (closest is first).
+        """
         filtered_table = self.table.iloc[begin:end]
 
         mask = np.logical_and.reduce([
@@ -123,22 +154,125 @@ class Converter:
 
         return sos
         
-
     def add_standoff(self, begin, end, tag, attrib):
         raise NotImplementedError()
 
+    def __replace_el(self, old_el, new_el):
+
+        old_so = self.el2so[old_el]
+
+        second_parents = self.get_parents(
+            old_so.begin,
+            old_so.end,
+            old_so.depth
+        )
+
+        # and replace the subtree
+        if len(second_parents) == 0:
+            new_el.tail = self.text_el.tail
+            self.text_el = new_el
+        else:
+            second_parent = self.so2el[second_parents[-1]]
+            new_el.tail = old_el.tail
+            second_parent.replace(
+                old_el,
+                new_el
+            )
+
+    def __update_so2el_lookup(self, new_so2el):
+
+        for new_so, new_el in new_so2el.items():
+
+            if new_so in self.so2el:
+                old_el = self.so2el[new_so]
+                del self.el2so[old_el]
+
+            self.so2el[new_so] = new_el
+            self.el2so[new_el] = new_so
+
+
+    def remove_inline(self, so_to_remove):
+        """Remove a standoff element from the structure. 
+        The standoff element will be removed from the caches and from the etree.
+        
+        arguments:
+        so_to_remove (StandoffElement)-- the element that should be removed
+
+        """
+        parents = self.get_parents(
+            so_to_remove.begin,
+            so_to_remove.end,
+            so_to_remove.depth
+        )
+
+        closest_parent = parents[-1]
+
+        new_part = []
+        
+        for irow, row in self.table.iloc[closest_parent.begin:closest_parent.end].iterrows():
+            for iso, so in enumerate(row.sos):
+                if so.depth == closest_parent.depth:
+
+                    new_part.append(
+                        row.sos[iso:]
+                    )
+
+                if so_to_remove in row.sos:
+                    row.sos.remove(so_to_remove)
+
+        new_part = pd.DataFrame.from_dict({
+            "sos": new_part,
+            "text": self.table[closest_parent.begin:closest_parent.end].text
+        })
+
+        children = self.get_children(
+            so_to_remove.begin,
+            so_to_remove.end,
+            so_to_remove.depth
+        )
+        
+        for child in children:
+            child.depth -= 1
+
+        # now, recreate the subtree this element is in
+        new_closest_parent_el, new_so2el = standoff_to_tree(
+            new_part
+        )
+
+        self.__replace_el(
+            self.so2el[closest_parent],
+            new_closest_parent_el
+        )
+        
+        del self.el2so[self.so2el[so_to_remove]]
+        del self.so2el[so_to_remove]
+
+        self.__update_so2el_lookup(new_so2el)
+        
+
     def add_inline(self, **tag_dict):
+        """Add a standoff element to the structure. 
+        The standoff element will be added to the caches and to the etree.
+        
+        arguments:
+        begin (int)-- beginning character position within the XML
+        end (int)-- ending character position within the XML
+        tag (str)-- tag name, for example 'text' for <text>.
+        depth (int)-- depth where to add the element. If None, it will be added deepest
+        attrib (dict)-- dictionary of items that go into the attrib of etree.Element. Ultimately, attributes within tags. for example {"resp":"machine"} will result in <SOMETAG resp="machine">.
+        """
+
         self.ensure_cache()
         
         # First, stay in the standoff world
-        new_el = StandoffElement(tag_dict)
+        new_so = StandoffElement(tag_dict)
 
-        parents = self.get_parents(new_el.begin, new_el.end, new_el.depth)
+        parents = self.get_parents(new_so.begin, new_so.end, new_so.depth)
         closest_parent = parents[-1]
 
-        new_el.depth = closest_parent.depth + 1
+        new_so.depth = closest_parent.depth + 1
 
-        children = self.get_children(new_el.begin, new_el.end, new_el.depth)
+        children = self.get_children(new_so.begin, new_so.end, new_so.depth)
         
         for child in children:
             child.depth += 1
@@ -148,8 +282,8 @@ class Converter:
         for irow, row in self.table.iloc[closest_parent.begin:closest_parent.end].iterrows():
             for iso, so in enumerate(row.sos):
                 if so.depth == closest_parent.depth:
-                    if irow >= new_el.begin and irow < new_el.end:
-                        row.sos.insert(iso+1, new_el)
+                    if irow >= new_so.begin and irow < new_so.end:
+                        row.sos.insert(iso+1, new_so)
 
                     new_part.append(
                         row.sos[iso:]
@@ -165,33 +299,12 @@ class Converter:
             new_part
         )
 
-        second_parents = self.get_parents(
-            closest_parent.begin,
-            closest_parent.end,
-            closest_parent.depth
+        self.__replace_el(
+            self.so2el[closest_parent],
+            new_closest_parent_el
         )
 
-        # and replace the subtree
-        if len(second_parents) == 0:
-            new_closest_parent_el.tail = self.text_el.tail
-            self.text_el = new_closest_parent_el
-        else:
-            second_parent = second_parents[-1]
-            new_closest_parent_el.tail = self.so2el[closest_parent].tail    
-            self.so2el[second_parent].replace(
-                self.so2el[closest_parent],
-                new_closest_parent_el
-            )
-
-        # update lookups
-        for new_so, new_el in new_so2el.items():
-
-            if new_so in self.so2el:
-                old_el = self.so2el[new_so]
-                del self.el2so[old_el]
-
-            self.so2el[new_so] = new_el
-            self.el2so[new_el] = new_so
+        self.__update_so2el_lookup(new_so2el)
 
 
 class StandoffElement:
@@ -205,6 +318,15 @@ class StandoffElement:
 
     def __str__(self):
         return self.tag
+
+    def to_dict(self):
+        return {
+            "tag": self.tag,
+            "attrib": self.attrib,
+            "begin": self.begin,
+            "end": self.end,
+            "depth": self.depth
+        }
 
 
 def create_el_from_so(c_so):
@@ -334,314 +456,3 @@ def standoff_to_tree(table):
     root = so2el[table.iloc[0].sos[0]].getroottree().getroot()
 
     return root, so2el
-
-
-
-# class AnnotationPair:
-#     """Contains a reference to the etree.Element object (self.el) and the corresponding StandoffElement object (self.so) to link the two representations.
-#     """
-#     def __init__(self, so, el, converter):
-#         """Create an AnnotationPair from a StandoffElement instance.
-        
-#         arguments:
-#             so (StandoffElement): the StandoffElement instance.
-#             el (etree.Element): the etree.Element instance.
-#             converter (Converter): the Converter instance in which so is located.
-
-#         returns:
-#             (AnnotationPair): The created AnnotationPair instance.
-#         """
-#         self.so = so
-#         self.el = el
-#         self.converter = converter
-
-#     @classmethod
-#     def from_so(cls, so, converter):
-#         """Create an AnnotationPair from a StandoffElement instance.
-        
-#         arguments:
-#             so (StandoffElement): the StandoffElement instance.
-#             converter (Converter): the Converter instance in which so is located.
-
-#         returns:
-#             (AnnotationPair): The created AnnotationPair instance.
-#         """
-#         el = create_el_from_so(so)
-#         so.etree_el = el
-#         return cls(so, el, converter)
-
-#     def xpath(self, *args, **kwargs):
-#         """Wrapper for `xpath` of the el
-
-#         returns
-#             (list): List of AnnotationPairs
-#         """
-#         found_els = self.el.xpath(*args, **kwargs)
-#         return [self.converter.el2pair[el] for el in found_els]
-
-#     def find(self, *args, **kwargs):
-#         """Wrapper for `find` of the el
-
-#         returns
-#             (AnnotationPairs): The found annotation pair
-#         """
-#         found_el = self.el.find(*args, **kwargs)
-#         return self.converter.el2pair[found_el]
-
-#     def get_text(self):
-#         """Get the text inside the annotation
-
-#         returns:
-#             (str): text within the annotation
-#         """
-#         return self.converter.plain[self.get_begin():self.get_end()]
-
-#     def get_so(self):
-#         """Get the so of the AnnotationPair
-
-#         returns:
-#             (StandoffElement): The created dictionary of standoff properties
-#         """
-#         return self.so
-
-#     def get_el(self):
-#         """Get the el of the AnnotationPair
-
-#         returns:
-#             (etree.Element): The created dictionary of standoff properties
-#         """
-#         return self.el
-
-#     def get_tag(self):
-#         """Get the tag of the StandoffElement
-
-#         returns:
-#             (str): The created dictionary of standoff properties
-#         """
-#         return self.so.tag
-
-#     def get_depth(self):
-#         """Get the depth of the StandoffElement
-
-#         returns:
-#             (int): The created dictionary of standoff properties
-#         """
-#         return self.so.depth
-
-#     def get_attrib(self):
-#         """Get the attrib of the StandoffElement
-
-#         returns:
-#             (dict): The created dictionary of standoff properties
-#         """
-#         return self.so.attrib
-
-#     def get_begin(self):
-#         """Get the begin of the StandoffElement
-
-#         returns:
-#             (int): The created dictionary of standoff properties
-#         """
-#         return self.so.begin
-
-#     def get_end(self):
-#         """Get the end of the StandoffElement
-
-#         returns:
-#             (int): The created dictionary of standoff properties
-#         """
-#         return self.so.end
-
-#     def get_dict(self):
-#         """Creates a new dictionary instance with the basic properties of the so element
-
-#         returns:
-#             (dict): The created dictionary of standoff properties
-#         """
-#         return {
-#             "begin": self.so.begin,
-#             "end": self.so.end,
-#             "attrib": self.so.attrib,
-#             "depth": self.so.depth,
-#             "tag": self.so.tag,
-#         }
-
-
-
-
-
-# class Converter_:
-#     """Home class that manages the representations of the document. 
-#     """
-#     def __init__(self, collection=None, plain=None, tree=None, so2pair=None, el2pair=None):
-#         """
-#         arguments:
-#             collection (list): annotations in list format.
-#             tree (etree.Element): root element of all annotations in tree format.
-#             plain (str): plain text without annotations.
-#             so2pair (dict): a dictionary to lookup self.collection items given a StandoffElement
-#             el2pair (dict): a dictionary to lookup self.collection items given a etree.Element
-
-#         returns:
-#             (AnnotationPair): The created AnnotationPair instance.
-#         """
-        
-#         if collection is None:
-#             self.collection = []
-#         else:
-#             self.collection = collection
-
-#         self.plain = plain
-#         self.tree = tree
-#         if so2pair is None or el2pair is None:
-#             self.so2pair, self.el2pair = self.__get_lookups()
-        
-#         if self.tree is not None:
-#             self.root_ap = self.el2pair[self.tree]
-
-#     @classmethod
-#     def from_tree(cls, tree):
-#         """create a standoff representation from an lxml tree.
-
-#         arguments:
-#             tree: the lxml object
-#         """
-#         self = cls()
-#         plain, collection = tree_to_standoff(tree, self)
-#         self.tree = tree
-#         self.plain = plain
-#         self.collection = collection
-#         self.so2pair, self.el2pair = self.__get_lookups()
-#         self.root_ap = self.el2pair[self.tree]
-
-#         return self
-
-#     def to_tree(self):
-#         """
-#         returns:
-#             (etree.Element): Root element of the tree representation.
-#         """
-#         return self.tree
-
-#     def to_json(self):
-#         """
-#         returns:
-#             (str): JSON representation.
-#         """
-#         return json.dumps(
-#             [it.get_dict() for it in self.collection]
-#         )
-
-#     def __iter__(self):
-#         for attr in self.collection:
-#             yield attr, self.plain[attr.begin:attr.end]
-
-#     def __len__(self):
-#         return len(self.collection)
-
-#     def __synchronize_representations(self, reference):
-
-#         if reference == "standoff":
-#             self.tree = standoff_to_tree(self)
-#         elif reference == "tree":
-#             self.plain, self.collection = tree_to_standoff(self.tree, self)
-#         else:
-#             raise ValueError("reference unknown.")
-
-#         self.so2pair, self.el2pair = self.__get_lookups()
-
-#     def __get_lookups(self):
-        
-#         so2pair = {}
-#         el2pair = {}
-        
-#         for it_pair in self.collection:
-#             so, el = it_pair.get_so(), it_pair.get_el()
-#             so2pair[so] = it_pair
-#             el2pair[el] = it_pair
-
-#         return so2pair, el2pair
-
-#     def add_annotation(self, begin=None, end=None, tag=None, depth=None, attribute=None, unique=True, synchronize=True):
-#         """add a standoff annotation.
-
-#         arguments:
-#             begin (int): the beginning character index
-#             end (int): the ending character index
-#             tag (str): the name of the xml tag
-#             depth (int): tree depth of the attribute. for the same begin and end, a lower depth annotation includes a higher depth annotation
-#             attribute (dict): attrib of the lxml
-#             unique (bool): whether to allow for duplicate annotations
-#             synchronize (bool): Whether to synchronize other representations (self.tree, the lookups) when self.collection is updated.
-#         """
-#         if not unique or not self.__is_duplicate_annotation(begin, end, tag, attribute):
-#             dict_ = {
-#                 "begin": begin,
-#                 "end": end,
-#                 "tag": tag,
-#                 "attrib": attribute,
-#                 "depth": depth if depth is not None else 0
-#             }
-            
-#             so = StandoffElement(dict_)
-#             pair = AnnotationPair.from_so(so, self)
-#             self.collection.append(pair)
-#         if synchronize:
-#             self.__synchronize_representations(reference="standoff")
-
-#     def remove_annotation(self, so, synchronize=True):
-#         '''remove a standoff annotation
-
-#         arguments:
-#             so (StandoffElement): that is to be removed.
-#             synchronize (bool): Whether to synchronize other representations (self.tree, the lookups) when self.collection is updated.
-#         '''
-
-#         if so not in self.collection:
-#             raise ValueError("Annotation not in collection")
-#         self.collection.remove(so)
-        
-#         if synchronize:
-#             self.__synchronize_representations(reference="standoff")
-    
-#     @contextmanager
-#     def transaction(self, reference):
-#         '''delay the synchronization until all modifications to either the "standoff" or the "tree" as been finished to save unwanted compute for each individual modification. You should not modify both representations in one transaction.
-
-#         arguments:
-#             reference (str): name of the representation that holds the updated information (either "standoff" or "tree").
-#         '''
-#         try:
-#             yield
-#         finally:
-#             self.__synchronize_representations(reference)
-
-
-#     def __is_duplicate_annotation(self, begin, end, tag, attribute):
-#         """check whether this annotation already in self.collection
-        
-#         arguments:
-#             begin (int): the beginning character index
-#             end (int): the ending character index
-#             tag (str): the name of the xml tag
-#             attribute (dict): attrib of the lxml
-
-#         returns:
-#             bool: True if annotation already exists
-#         """
-
-#         def attrs_equal(attr_a, attr_b):
-#             shared_items = {}
-#             for k in attr_a:
-#                 if k in attr_b and attr_a[k] == attr_b[k]:
-#                     shared_items[k] = attr_a[k]
-
-#             return len(attr_a) == len(attr_b) == len(shared_items)
-
-#         for item_pair in self.collection:
-#             if (item_pair.get_begin() == begin
-#                 and item_pair.get_end() == end
-#                 and item_pair.get_tag() == tag
-#                 and attrs_equal(attribute, item_pair.get_attrib())):
-#                 return True
-#         return False
