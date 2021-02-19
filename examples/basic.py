@@ -1,38 +1,31 @@
 from lxml import etree
-import standoffconverter.Converter as Co
+from standoffconverter import Converter
 
-input_xml = '''
-<W>
-  <header>
-    <date>
-      2019
-    </date>
-    <location>
-      Berlin, Germany
-    </location>
-  </header>
-  <text type="a">
-    Lorem ipsum dolor sit amet, <add>consetetur</add> sadipscing <del>elitr</del>, <note resp="David Lassner">sed</note> diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua.
-  </text>
-</W>
-'''
+input_xml = '''<TEI><teiHeader></teiHeader><text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text></TEI>'''
 
 if __name__ == "__main__":
       
-      print("INPUT XML:")
-      print(input_xml)
-      
-      tree = etree.fromstring(input_xml)
-      
-      converter = Co.from_tree(tree)
-      
-      t = "aliquyam"
-      begin = converter.plain.index(t)
-      end = begin + len(t)
-      converter.add_annotation(begin, end, "del", 0, {"resp": "David Lassner"})
+	print("INPUT XML:")
+	print(input_xml)
 
-      new_xml = etree.tostring(converter.to_tree(), encoding=str)
+	tree = etree.fromstring(input_xml)
+	converter = Converter(tree)
 
-      print("\n\n####\nOUTPUT XML")
+	with converter.cached_standoff():
 
-      print(new_xml)
+		converter.add_inline(
+			begin=4,
+			end=7,
+			tag="threefour",
+			attrib={"resp":"David Lassner"},
+			depth=None,
+		)
+
+		print("Collapsed view:")
+		print(converter.collapsed_table)
+
+	new_xml = etree.tostring(converter.text_el).decode("utf-8")
+
+	print("\n\n####\nOUTPUT XML")
+
+	print(new_xml)

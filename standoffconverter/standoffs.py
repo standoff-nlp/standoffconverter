@@ -39,11 +39,13 @@ class Converter:
 
     def populate_cache(self):
         self.table, self.so2el, self.el2so = tree_to_standoff(self.text_el)
+        self.plaintext = "".join(self.table.text)
 
     def reset_cache(self):
         self.el2so = None
         self.so2el = None
         self.table = None
+        self.plaintext = None
 
     def ensure_cache(self):
         if self.table is None:
@@ -52,9 +54,8 @@ class Converter:
     @property
     def plain(self):
         """Plain text string of all text inside the <text> element of the TEI XML."""
-
         self.ensure_cache()
-        return "".join(self.table.text)
+        return self.plaintext
 
     @property
     def standoffs(self):
@@ -84,17 +85,8 @@ class Converter:
         
     @property
     def collapsed_table(self):
-        """Pandas Dataframe with standoff elements and texts aligned. text within the same element is grouped"""
         self.ensure_cache()
-        grouping = self.table.groupby(lambda x: tuple(self.table.iloc[x].sos), sort=False)
-
-        collapsed = []
-        for group, subdf in grouping:
-            collapsed.append({
-                "group":group,
-                "text":"".join(subdf.text)
-            })
-        return pd.DataFrame(collapsed)
+        return collapse_table(self.table)
 
     def get_parents(self, begin, end, depth=None):
         """Get all parent sos.
@@ -148,7 +140,7 @@ class Converter:
 
         candidates = list(set([so for _,row in filtered_table.iterrows() for so in row.sos]))
 
-        sos = [so for so in candidates if depth is None or so.depth > depth]
+        sos = [so for so in candidates if depth is None or so.depth >= depth]
 
         sos = sorted(sos, key=lambda x: x.depth)
 
@@ -271,7 +263,7 @@ class Converter:
         closest_parent = parents[-1]
 
         new_so.depth = closest_parent.depth + 1
-
+        
         children = self.get_children(new_so.begin, new_so.end, new_so.depth)
         
         for child in children:
@@ -288,7 +280,6 @@ class Converter:
                     new_part.append(
                         row.sos[iso:]
                     )
-
         new_part = pd.DataFrame.from_dict({
             "sos": new_part,
             "text": self.table[closest_parent.begin:closest_parent.end].text
@@ -319,6 +310,9 @@ class StandoffElement:
     def __str__(self):
         return self.tag
 
+    def __repr__(self):
+        return f"{self.tag}-{hex(id(self))}"
+
     def to_dict(self):
         return {
             "tag": self.tag,
@@ -327,6 +321,19 @@ class StandoffElement:
             "end": self.end,
             "depth": self.depth
         }
+
+def collapse_table(table):
+        """Pandas Dataframe with standoff elements and texts aligned. text within the same element is grouped"""
+        context = table.sos.apply(tuple)
+        grouper = (context != context.shift()).cumsum()
+        collapsed = []
+        for group, subdf in table.groupby(grouper):
+            collapsed.append({
+                "context": subdf.iloc[0].sos,
+                "text": "".join(subdf.text)
+            })
+
+        return pd.DataFrame(collapsed)
 
 
 def create_el_from_so(c_so):
@@ -428,10 +435,11 @@ def standoff_to_tree(table):
         tree (str) -- the root element of the resulting tree
     """
     so2el = {}
-    for _,row in table.iterrows():
+    collapsed_table = collapse_table(table)
+    for _,row in collapsed_table.iterrows():
         
         c_parents = []
-        for it in row.sos:
+        for it in row.context:
             if it not in so2el:
                 new_el = create_el_from_so(it)
                 so2el[it] = new_el
@@ -453,6 +461,6 @@ def standoff_to_tree(table):
                 c_parents[-1][-1].tail = ""
             c_parents[-1][-1].tail += row.text
 
-    root = so2el[table.iloc[0].sos[0]].getroottree().getroot()
+    root = so2el[collapsed_table.iloc[0].context[0]].getroottree().getroot()
 
     return root, so2el
