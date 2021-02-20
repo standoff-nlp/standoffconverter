@@ -38,18 +38,24 @@ class Converter:
             self.reset_cache()
 
     def populate_cache(self):
-        self.table, self.so2el, self.el2so = tree_to_standoff(self.text_el)
+        self.table_, self.so2el, self.el2so = tree_to_standoff(self.text_el)
         self.plaintext = "".join(self.table.text)
 
     def reset_cache(self):
         self.el2so = None
         self.so2el = None
-        self.table = None
+        self.table_ = None
         self.plaintext = None
 
     def ensure_cache(self):
-        if self.table is None:
+        if self.table_ is None:
             self.populate_cache()
+
+    @property
+    def table(self):
+        """Table with each character and context of the <text> element of the tei tree. Index  is character position inside <text> element of te TEI XML."""
+        self.ensure_cache()
+        return self.table_
     
     @property
     def tree(self):
@@ -91,7 +97,7 @@ class Converter:
         
     @property
     def collapsed_table(self):
-        """Table with text and context of the <text> element of the tei tree. all leaf/tail text with the same context is joined."""
+        """Table with text and context of the <text> element of the tei tree. All leaf/tail text with the same context is joined."""
         self.ensure_cache()
         return collapse_table(self.table)
 
