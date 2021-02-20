@@ -63,12 +63,12 @@ class Converter:
 
         self.ensure_cache()
 
-        sos = list(set([so for sos in self.table.sos for so in sos]))
+        context = list(set([so for context in self.table.context for so in context]))
         
-        sos = sorted(
+        context = sorted(
             sorted(
                 sorted(
-                    sos,
+                    context,
                     key=lambda x: x.depth
                 ),
                 key=lambda x:  (x.begin - x.end)
@@ -76,7 +76,7 @@ class Converter:
             key=lambda x: x.begin
         )
 
-        return sos
+        return context
 
     @property
     def json(self):
@@ -89,7 +89,7 @@ class Converter:
         return collapse_table(self.table)
 
     def get_parents(self, begin, end, depth=None):
-        """Get all parent sos.
+        """Get all parent context.
         
         arguments:
         begin (int)-- beginning character position within the XML
@@ -99,27 +99,27 @@ class Converter:
         returns:
             parents (list) -- list of parent elements ordered by depth (closest is last).
         """
-        filtered_table = self.table.iloc[
-            max(0,begin-1):min(len(self.table),end+1)
-        ]
+        mask = np.zeros(len(self.table), dtype=bool)
+        # include only slightly more than all children
+        mask[max(0,begin-1):min(len(self.table),end+1)] = True 
+        # exlcude children
+        mask[begin+1:end-1] = False
+        
+        filtered_table = self.table[mask]
 
-        mask = np.logical_and.reduce([
-            filtered_table.sos.apply(lambda x: x[-1].begin<=begin),
-            filtered_table.sos.apply(lambda x: x[-1].end>=end)
-        ])
+        context = list(set([
+            so 
+                for context in filtered_table.context 
+                    for so in context 
+                        if depth is None or so.depth < depth
+        ]))
 
-        filtered_table = filtered_table[mask]
+        context = sorted(context, key=lambda x: x.depth)
 
-        candidates = list(set([so for _,row in filtered_table.iterrows() for so in row.sos]))
-
-        sos = [so for so in candidates if depth is None or so.depth < depth]
-
-        sos = sorted(sos, key=lambda x: x.depth)
-
-        return sos
+        return context
 
     def get_children(self, begin, end, depth=None):
-        """Get all children sos.
+        """Get all children context.
         
         arguments:
         begin (int)-- beginning character position within the XML
@@ -129,22 +129,26 @@ class Converter:
         returns:
             children (list) -- list of children elements ordered by depth (closest is first).
         """
+
         filtered_table = self.table.iloc[begin:end]
 
         mask = np.logical_and.reduce([
-            filtered_table.sos.apply(lambda x: x[-1].begin>=begin),
-            filtered_table.sos.apply(lambda x: x[-1].end<=end),
+            filtered_table.context.apply(lambda x: x[-1].begin>=begin),
+            filtered_table.context.apply(lambda x: x[-1].end<=end),
         ])
 
         filtered_table = filtered_table[mask]
 
-        candidates = list(set([so for _,row in filtered_table.iterrows() for so in row.sos]))
+        context = list(set([
+            so 
+                for context in filtered_table.context 
+                    for so in context 
+                        if depth is None or so.depth >= depth
+        ]))
 
-        sos = [so for so in candidates if depth is None or so.depth >= depth]
+        context = sorted(context, key=lambda x: x.depth)
 
-        sos = sorted(sos, key=lambda x: x.depth)
-
-        return sos
+        return context
         
     def add_standoff(self, begin, end, tag, attrib):
         raise NotImplementedError()
@@ -182,65 +186,61 @@ class Converter:
             self.so2el[new_so] = new_el
             self.el2so[new_el] = new_so
 
+    def __get_part_to_update(self, table, depth):
+        to_update = []
+        for context in table.context:
+            to_update.append(context[depth:])
 
-    def remove_inline(self, so_to_remove):
+        return pd.DataFrame.from_dict({
+            "context": to_update,
+            "text": table.text
+        })
+
+    def remove_inline(self, del_so):
         """Remove a standoff element from the structure. 
         The standoff element will be removed from the caches and from the etree.
         
         arguments:
-        so_to_remove (StandoffElement)-- the element that should be removed
+        del_so (StandoffElement)-- the element that should be removed
 
         """
-        parents = self.get_parents(
-            so_to_remove.begin,
-            so_to_remove.end,
-            so_to_remove.depth
-        )
 
-        closest_parent = parents[-1]
+        self.ensure_cache()
+        # First, get parents and children
+        del_so_table = self.table.iloc[del_so.begin:del_so.end]
 
-        new_part = []
+        parent = self.get_parents(del_so.begin, del_so.end, del_so.depth)[-1]
+        parent_table = self.table.iloc[parent.begin:parent.end]
+
+        children = self.get_children( del_so.begin, del_so.end, del_so.depth )
         
-        for irow, row in self.table.iloc[closest_parent.begin:closest_parent.end].iterrows():
-            for iso, so in enumerate(row.sos):
-                if so.depth == closest_parent.depth:
-
-                    new_part.append(
-                        row.sos[iso:]
-                    )
-
-                if so_to_remove in row.sos:
-                    row.sos.remove(so_to_remove)
-
-        new_part = pd.DataFrame.from_dict({
-            "sos": new_part,
-            "text": self.table[closest_parent.begin:closest_parent.end].text
-        })
-
-        children = self.get_children(
-            so_to_remove.begin,
-            so_to_remove.end,
-            so_to_remove.depth
-        )
-        
+        # DEPTH handling 
+        # decrease children's depth by one
         for child in children:
             child.depth -= 1
 
+        # actually removing the new standoff element
+        for _,row in del_so_table.iterrows():
+            row.context.remove(del_so)
+
+        # extract part of the standoff table that needs to be recreated
+        # as etree
+        to_update = self.__get_part_to_update(parent_table, parent.depth)
+
         # now, recreate the subtree this element is in
-        new_closest_parent_el, new_so2el = standoff_to_tree(
-            new_part
-        )
+        new_parent_el, new_so2el = standoff_to_tree(to_update)
 
         self.__replace_el(
-            self.so2el[closest_parent],
-            new_closest_parent_el
+            self.so2el[parent],
+            new_parent_el
         )
         
-        del self.el2so[self.so2el[so_to_remove]]
-        del self.so2el[so_to_remove]
+        # remove deleted element from lookups
+        del self.el2so[self.so2el[del_so]]
+        del self.so2el[del_so]
 
         self.__update_so2el_lookup(new_so2el)
-        
+
 
     def add_inline(self, **tag_dict):
         """Add a standoff element to the structure. 
@@ -256,43 +256,36 @@ class Converter:
 
         self.ensure_cache()
         
-        # First, stay in the standoff world
+        # First, create new standoff element and get parents and children
         new_so = StandoffElement(tag_dict)
+        new_so_table = self.table.iloc[new_so.begin:new_so.end]
 
-        parents = self.get_parents(new_so.begin, new_so.end, new_so.depth)
-        closest_parent = parents[-1]
+        parent = self.get_parents(new_so.begin, new_so.end, new_so.depth)[-1]
+        parent_table = self.table.iloc[parent.begin:parent.end]
 
-        new_so.depth = closest_parent.depth + 1
-        
         children = self.get_children(new_so.begin, new_so.end, new_so.depth)
+        
+        # DEPTH handling 
+        # set own depth and increase children's depth by one
+        new_so.depth = parent.depth + 1
         
         for child in children:
             child.depth += 1
         
-        new_part = []
-        
-        for irow, row in self.table.iloc[closest_parent.begin:closest_parent.end].iterrows():
-            for iso, so in enumerate(row.sos):
-                if so.depth == closest_parent.depth:
-                    if irow >= new_so.begin and irow < new_so.end:
-                        row.sos.insert(iso+1, new_so)
+        # actually inserting the new standoff element
+        for _,row in new_so_table.iterrows():
+            row.context.insert(new_so.depth, new_so)
 
-                    new_part.append(
-                        row.sos[iso:]
-                    )
-        new_part = pd.DataFrame.from_dict({
-            "sos": new_part,
-            "text": self.table[closest_parent.begin:closest_parent.end].text
-        })
+        # extract part of the standoff table that needs to be recreated
+        # as etree
+        to_update = self.__get_part_to_update(parent_table, parent.depth)
 
         # now, recreate the subtree this element is in
-        new_closest_parent_el, new_so2el = standoff_to_tree(
-            new_part
-        )
+        new_parent_el, new_so2el = standoff_to_tree(to_update)
 
         self.__replace_el(
-            self.so2el[closest_parent],
-            new_closest_parent_el
+            self.so2el[parent],
+            new_parent_el
         )
 
         self.__update_so2el_lookup(new_so2el)
@@ -324,12 +317,12 @@ class StandoffElement:
 
 def collapse_table(table):
         """Pandas Dataframe with standoff elements and texts aligned. text within the same element is grouped"""
-        context = table.sos.apply(tuple)
+        context = table.context.apply(tuple)
         grouper = (context != context.shift()).cumsum()
         collapsed = []
         for group, subdf in table.groupby(grouper):
             collapsed.append({
-                "context": subdf.iloc[0].sos,
+                "context": subdf.iloc[0].context,
                 "text": "".join(subdf.text)
             })
 
@@ -349,7 +342,7 @@ def get_table_from_pair_collection(plain, pair_collection):
     so2el = {}
     el2so = {}
 
-    for c_so,c_el in order:
+    for c_so, c_el in order:
 
         so2el[c_so] = c_el
         el2so[c_el] = c_so
@@ -359,7 +352,7 @@ def get_table_from_pair_collection(plain, pair_collection):
 
     table = pd.DataFrame()
 
-    table['sos'] = pos2so
+    table['context'] = pos2so
     table['text'] = [c for c in plain]
 
     return table, so2el, el2so

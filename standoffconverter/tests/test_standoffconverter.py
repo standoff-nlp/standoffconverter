@@ -21,10 +21,10 @@ class TestStandoffConverter(unittest.TestCase):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Converter(tree)
         with so.cached_standoff():
-            self.assertTrue(so.table.iloc[0].sos[0].begin == 0)
-            self.assertTrue(so.table.iloc[-1].sos[0].begin == 0)
-            self.assertTrue(so.table.iloc[0].sos[0].end == len(so.plain))
-            self.assertTrue(so.table.iloc[-1].sos[0].end == len(so.plain))
+            self.assertTrue(so.table.iloc[0].context[0].begin == 0)
+            self.assertTrue(so.table.iloc[-1].context[0].begin == 0)
+            self.assertTrue(so.table.iloc[0].context[0].end == len(so.plain))
+            self.assertTrue(so.table.iloc[-1].context[0].end == len(so.plain))
 
     def test_add_annotation_1(self):
         tree = etree.fromstring(input_xml1)
