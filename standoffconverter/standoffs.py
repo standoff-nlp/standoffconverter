@@ -52,6 +52,12 @@ class Converter:
             self.populate_cache()
     
     @property
+    def tree(self):
+        """tree of the TEI XML."""
+        return self.tei_tree
+
+
+    @property
     def plain(self):
         """Plain text string of all text inside the <text> element of the TEI XML."""
         self.ensure_cache()
@@ -85,6 +91,7 @@ class Converter:
         
     @property
     def collapsed_table(self):
+        """Table with text and context of the <text> element of the tei tree. all leaf/tail text with the same context is joined."""
         self.ensure_cache()
         return collapse_table(self.table)
 
