@@ -131,7 +131,7 @@ class Converter:
 
         return context
 
-    def get_children(self, begin, end, depth=None):
+    def get_children(self, begin, end, depth):
         """Get all children context.
         
         arguments:
@@ -142,6 +142,8 @@ class Converter:
         returns:
             children (list) -- list of children elements ordered by depth (closest is first).
         """
+        if depth is None:
+            return []
 
         filtered_table = self.table.iloc[begin:end]
 
@@ -156,7 +158,7 @@ class Converter:
             so 
                 for context in filtered_table.context 
                     for so in context 
-                        if depth is None or so.depth >= depth
+                        if so.depth >= depth
         ]))
 
         context = sorted(context, key=lambda x: x.depth)
@@ -225,7 +227,11 @@ class Converter:
         parent = self.get_parents(del_so.begin, del_so.end, del_so.depth)[-1]
         parent_table = self.table.iloc[parent.begin:parent.end]
 
-        children = self.get_children( del_so.begin, del_so.end, del_so.depth )
+        children = self.get_children( 
+            del_so.begin,
+            del_so.end,
+            del_so.depth 
+        )
         
         # DEPTH handling 
         # decrease children's depth by one
