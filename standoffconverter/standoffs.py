@@ -119,6 +119,13 @@ class Converter:
         mask[begin+1:end-1] = False
         
         filtered_table = self.table[mask]
+        
+        mask = np.logical_and.reduce([
+            filtered_table.context.apply(lambda x: x[-1].begin<=begin),
+            filtered_table.context.apply(lambda x: x[-1].end>=end)
+        ])
+
+        filtered_table = filtered_table[mask]
 
         context = list(set([
             so 
@@ -183,7 +190,9 @@ class Converter:
             new_el.tail = self.text_el.tail
             self.text_el = new_el
         else:
+
             second_parent = self.so2el[second_parents[-1]]
+            
             new_el.tail = old_el.tail
             second_parent.replace(
                 old_el,
@@ -225,6 +234,7 @@ class Converter:
         del_so_table = self.table.iloc[del_so.begin:del_so.end]
 
         parent = self.get_parents(del_so.begin, del_so.end, del_so.depth)[-1]
+
         parent_table = self.table.iloc[parent.begin:parent.end]
 
         children = self.get_children( 
@@ -260,6 +270,21 @@ class Converter:
 
         self.__update_so2el_lookup(new_so2el)
 
+    
+    def __validate_add_inline(self, new_so, parents, children):
+
+        if len(parents) == 0:
+            raise ValueError("no unique parent element found.")
+
+        parent = parents[-1]
+        
+        new_so_table = self.table.iloc[new_so.begin:new_so.end]
+        
+        spurious_children = [c for _,row in new_so_table.iterrows() for c in row.context if c.depth >= parent.depth+1 and c not in children]
+
+        if len(spurious_children) > 0:
+            raise ValueError("Spurious children found.")
+
 
     def add_inline(self, **tag_dict):
         """Add a standoff element to the structure. 
@@ -279,15 +304,21 @@ class Converter:
         new_so = StandoffElement(tag_dict)
         new_so_table = self.table.iloc[new_so.begin:new_so.end]
 
-        parent = self.get_parents(new_so.begin, new_so.end, new_so.depth)[-1]
-        parent_table = self.table.iloc[parent.begin:parent.end]
-
+        parents = self.get_parents(new_so.begin, new_so.end, new_so.depth)
         children = self.get_children(new_so.begin, new_so.end, new_so.depth)
         
+        self.__validate_add_inline(
+            new_so,
+            parents,
+            children
+        )
+        parent = parents[-1]
+
+        parent_table = self.table.iloc[parent.begin:parent.end]
         # DEPTH handling 
         # set own depth and increase children's depth by one
         new_so.depth = parent.depth + 1
-        
+
         for child in children:
             child.depth += 1
         
@@ -301,6 +332,7 @@ class Converter:
 
         # now, recreate the subtree this element is in
         new_parent_el, new_so2el = standoff_to_tree(to_update)
+        
 
         self.__replace_el(
             self.so2el[parent],

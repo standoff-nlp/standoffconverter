@@ -106,11 +106,10 @@ class TestStandoffConverter(unittest.TestCase):
         expected_out = '<text><body><p>1 <xx resp="machine"><vv resp="machine">2</vv></xx> 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text>'
         self.assertTrue(expected_out == output_xml)
 
-    def test_add_annotation_fail(self):
+    def test_add_annotation_fail1(self):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Converter(tree)
-        self.assertRaises(
-            ValueError,
+        with self.assertRaises(ValueError):
             so.add_inline(
                 begin=17,
                 end=19,
@@ -118,8 +117,25 @@ class TestStandoffConverter(unittest.TestCase):
                 depth=3,
                 attrib={"resp":"machine"}
             )
+
+    def test_add_annotation_fail2(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Converter(tree)
+        so.add_inline(
+            begin=2,
+            end=4,
+            tag="xx",
+            depth=None,
+            attrib={"resp":"machine"}
         )
-    
+        with self.assertRaises(ValueError):
+            so.add_inline(
+                begin=3,
+                end=5,
+                tag="xx",
+                depth=None,
+                attrib={"resp":"machine"}
+            )
 
     def test_collapsed_table(self):
         tree = etree.fromstring(input_xml1)
