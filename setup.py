@@ -1,7 +1,7 @@
 from setuptools import setup
 
 setup(name='standoffconverter',
-      version='0.7.2',
+      version='0.7.3',
       description='converter from xml to standoff and back',
       url='https://github.com/standoff-nlp/standoffconverter',
       author='David Lassner',
