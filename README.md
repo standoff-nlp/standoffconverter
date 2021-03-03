@@ -20,7 +20,7 @@ converter.add_inline(
         )
 
 # 3. store the modified XML
-new_tree = converter.text_el()
+new_tree = converter.tei_tree
 ```
 # Documentation
 [https://standoffconverter.readthedocs.io](https://standoffconverter.readthedocs.io/)
