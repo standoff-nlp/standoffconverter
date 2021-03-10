@@ -1,10 +1,11 @@
 import unittest
 import os
 from lxml import etree
+import numpy as np
 
 import standoffconverter
 
-input_xml1 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text></TEI>'''
+input_xml1 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text></TEI>'''
 
 
 file_xml1 = os.path.join(os.path.dirname(__file__), 'xml1.xml')
@@ -37,7 +38,7 @@ class TestStandoffConverter(unittest.TestCase):
             attrib={"resp":"machine"}
         )
         output_xml = etree.tostring(so.text_el).decode("utf-8")
-        expected_out = '''<text><body><p><xx resp="machine">1</xx> 2 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text>'''
+        expected_out = '''<text><body><p><xx resp="machine">1</xx> 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>'''
 
         self.assertTrue(expected_out == output_xml)
 
@@ -59,7 +60,7 @@ class TestStandoffConverter(unittest.TestCase):
             attrib={"resp":"machine"}
         )
         output_xml = etree.tostring(so.text_el).decode("utf-8")
-        expected_out = '<text><body><p><xx resp="machine">1</xx> <xx resp="machine">2</xx> 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text>'
+        expected_out = '<text><body><p><xx resp="machine">1</xx> <xx resp="machine">2</xx> 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>'
         self.assertTrue(expected_out == output_xml)
 
     def test_add_annotation_3(self):
@@ -81,7 +82,7 @@ class TestStandoffConverter(unittest.TestCase):
         )
         output_xml = etree.tostring(so.text_el).decode("utf-8")
 
-        expected_out = '<text><body><p>1 <vv resp="machine"><xx resp="machine">2</xx></vv> 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text>'
+        expected_out = '<text><body><p>1 <vv resp="machine"><xx resp="machine">2</xx></vv> 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>'
         self.assertTrue(expected_out == output_xml)
 
     def test_add_annotation_4(self):
@@ -103,7 +104,7 @@ class TestStandoffConverter(unittest.TestCase):
         )
         output_xml = etree.tostring(so.text_el).decode("utf-8")
 
-        expected_out = '<text><body><p>1 <xx resp="machine"><vv resp="machine">2</vv></xx> 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text>'
+        expected_out = '<text><body><p>1 <xx resp="machine"><vv resp="machine">2</vv></xx> 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>'
         self.assertTrue(expected_out == output_xml)
 
     def test_add_annotation_fail1(self):
@@ -137,29 +138,78 @@ class TestStandoffConverter(unittest.TestCase):
                 attrib={"resp":"machine"}
             )
 
-    def test_collapsed_table(self):
+    def test_add_empty_element(self):
+
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Converter(tree)
+
+        so.add_inline(
+            begin=1,
+            end=1,
+            tag="lb",
+            depth=None,
+            attrib={}
+        )
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
+
+        expected_out = '''<text><body><p>1<lb/> 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>'''
+
+        self.assertTrue(expected_out == output_xml)
+
+    def test_remove_empty_element(self):
+
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Converter(tree)
+        to_remove = so.standoffs[-1]
+
+        so.remove_inline(to_remove)
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
+        expected_out = '''<text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text>'''
+
+        self.assertTrue(expected_out == output_xml)
+
+    def test_collapsed_table_1(self):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Converter(tree)
         collapsed_table = so.collapsed_table
         self.assertTrue(collapsed_table.iloc[0].text == "1 2 3 4 5 6 7 9 10")
-        self.assertTrue(collapsed_table.iloc[1].text == " 11 12 13 14")
+    
+        self.assertTrue(collapsed_table.iloc[3].text == " 12 13 14")
+
+    def test_collapsed_table_2(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Converter(tree)
+        collapsed_table = so.collapsed_table
+        self.assertTrue(
+            str(collapsed_table.iloc[0].context) == "text>body>p"
+        )
     
     def test_json(self):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Converter(tree)
         output_json = so.json
-        expected_out = '[{"tag": "text", "attrib": {}, "begin": 0, "end": 30, "depth": 0}, {"tag": "body", "attrib": {}, "begin": 0, "end": 30, "depth": 1}, {"tag": "p", "attrib": {}, "begin": 0, "end": 18, "depth": 2}, {"tag": "p", "attrib": {}, "begin": 18, "end": 30, "depth": 2}]'
+        expected_out = '[{"tag": "text", "attrib": {}, "begin": 0, "end": 30, "depth": 0}, {"tag": "body", "attrib": {}, "begin": 0, "end": 30, "depth": 1}, {"tag": "p", "attrib": {}, "begin": 0, "end": 18, "depth": 2}, {"tag": "p", "attrib": {}, "begin": 18, "end": 30, "depth": 2}, {"tag": "lb", "attrib": {}, "begin": 21, "end": 21, "depth": 3}]'
         self.assertTrue(expected_out == output_json)
+
+
+    def test_view_1(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Converter(tree)
+
+        mask = np.zeros(len(so.table), dtype=bool)
+        mask[10:20] = True
+        view = standoffconverter.View(so, mask)
+        self.assertTrue(view.standoff_char_pos(0) == (10,10))
+
 
     def test_remove_annotation(self):
 
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Converter(tree)
         to_remove = so.standoffs[2]
-
         so.remove_inline(to_remove)
         output_xml = etree.tostring(so.text_el).decode("utf-8")
-        expected_output = '<text><body>1 2 3 4 5 6 7 9 10<p> 11 12 13 14</p></body></text>'
+        expected_output = '<text><body>1 2 3 4 5 6 7 9 10<p> 11<lb/> 12 13 14</p></body></text>'
         self.assertTrue(
             output_xml == expected_output
         )
@@ -189,7 +239,7 @@ class TestStandoffConverter(unittest.TestCase):
 
         output_xml = etree.tostring(so.text_el).decode("utf-8")
 
-        expected_output = "<text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text>"
+        expected_output = "<text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
 
         self.assertTrue(
             output_xml == expected_output
@@ -220,7 +270,7 @@ class TestStandoffConverter(unittest.TestCase):
 
         output_xml = etree.tostring(so.text_el).decode("utf-8")
 
-        expected_output = "<text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text>"
+        expected_output = "<text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
 
         self.assertTrue(
             output_xml == expected_output

@@ -1,2 +1,2 @@
-from .standoffs import Converter
+from .standoffs import Converter, View
 
