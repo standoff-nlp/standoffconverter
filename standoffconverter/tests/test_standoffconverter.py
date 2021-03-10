@@ -199,7 +199,7 @@ class TestStandoffConverter(unittest.TestCase):
         mask = np.zeros(len(so.table), dtype=bool)
         mask[10:20] = True
         view = standoffconverter.View(so, mask)
-        self.assertTrue(view.standoff_char_pos(0) == (10,10))
+        self.assertTrue(view.standoff_char_pos(0) == 10)
 
 
     def test_remove_annotation(self):

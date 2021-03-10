@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import json
 from contextlib import contextmanager
+from copy import deepcopy
 
 class Converter:
     """Contains a reference to the etree.Element object and the corresponding ContextItem object to link the two representations.
@@ -336,7 +337,7 @@ class Converter:
 
         parents = self.get_parents(new_so.begin, new_so.end, new_so.depth)
         children = self.get_children(new_so.begin, new_so.end, new_so.depth)
-        
+
         self.__validate_add_inline(
             new_so,
             parents,
@@ -416,25 +417,69 @@ class ContextItem:
 
 class View:
 
-    def __init__(self, so, mask):
+    def __init__(self, so, mask, replaces={"lb": "\n"}):
         
-        self.filtered_table = so.table[mask]
-        self.viewinds2soinds = self.filtered_table.index
+        # 1. apply argument mask
+        self.filtered_table = deepcopy(so.table[mask])
+
+
+        # 2. strip all multiple whitespace and reduce it to one `" "`
+        strip_mask = pd.Series(
+            np.ones(len(self.filtered_table)),
+            index=self.filtered_table.index,
+            dtype=bool
+        )
+
+        grouper = (
+            np.logical_and(
+                self.filtered_table.text.shift(fill_value=" ").isin([' ', '\t', '\n']), 
+                self.filtered_table.text.isin([' ', '\t', '\n'])
+            )
+        )
+
+        for group_, subdf in self.filtered_table.groupby(grouper):
+            if group_:
+                group__ = grouper[grouper==group_].index
+                strip_mask[group__[1:]] = False
+                self.filtered_table[group__[0], "text"] = " "
+
+        self.filtered_table.text = self.filtered_table.text.apply(lambda x: x.replace("\n", " "))
+        self.filtered_table = self.filtered_table[strip_mask]
+
+        # apply all argument replaces
+        for from_,to in replaces.items():
+
+            inds = self.filtered_table[
+                self.filtered_table.context.apply(
+                    lambda ctx: any([ctit.strip_ns() == from_ for ctit in ctx])
+                )
+            ].index
+
+            self.filtered_table.loc[inds, "text"] = to
+
+        self.viewinds2soinds = self.filtered_table.index.get_level_values(0)
         self.plain = "".join(self.filtered_table.text)
 
     def standoff_char_pos(self, ind):
         return self.viewinds2soinds[ind]
 
 
+def iter_collapsed_table(table):
+    context = table.context.apply(tuple)
+    grouper = (context != context.shift()).cumsum()
+    for group, subdf in table.groupby(grouper):
+        group_ = grouper[grouper==group].index
+        yield group_, subdf.iloc[0].context, "".join(subdf.text)
+
 def collapse_table(table):
         """Pandas Dataframe with standoff elements and texts aligned. text within the same element is grouped"""
-        context = table.context.apply(tuple)
-        grouper = (context != context.shift()).cumsum()
+
         collapsed = []
-        for group, subdf in table.groupby(grouper):
+        for group, context, text in iter_collapsed_table(table):
+            
             collapsed.append({
-                "context": subdf.iloc[0].context,
-                "text": "".join(subdf.text)
+                "context": context,
+                "text": text
             })
 
         return pd.DataFrame(collapsed)
@@ -455,6 +500,7 @@ def get_table_from_pair_collection(plain, pair_collection):
     pos2so = [Context() for _ in range(len(plain))]
     so2el = {}
     el2so = {}
+    offset = 0
 
     for c_so, c_el in order:
 
@@ -462,22 +508,18 @@ def get_table_from_pair_collection(plain, pair_collection):
         el2so[c_el] = c_so
 
         for pos in range(c_so.begin, c_so.end):
-            pos2so[pos].append(c_so)
-
+            pos2so[pos+offset].append(c_so)
         
         # handling of empty elements
         if c_so.begin == c_so.end:
             pos = c_so.begin
-            pos2so.insert(pos, Context(pos2so[pos]))
-            pos2so[pos].append(c_so)
+            base_index = pos+offset
+            pos2so.insert(pos, Context(pos2so[base_index]))
+            pos2so[base_index].append(c_so)
             
-            plain.insert(pos, "")
-            positions.insert(pos, positions[pos])
-
-
-
-    index = [
-    ]
+            plain.insert(base_index, "")
+            positions.insert(base_index, positions[base_index])
+            offset +=1
 
     table = pd.DataFrame([
             positions,
@@ -489,6 +531,7 @@ def get_table_from_pair_collection(plain, pair_collection):
     ).T
 
     table = table.set_index(["position", "base_index"])
+
     return table, so2el, el2so
     
 
