@@ -3,7 +3,7 @@ import os
 from lxml import etree
 import numpy as np
 
-import standoffs as standoffconverter
+import standoffconverter
 
 input_xml1 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text></TEI>'''
 
@@ -291,10 +291,7 @@ class TestStandoffConverter(unittest.TestCase):
             )
         
         output_xml = etree.tostring(so.text_el).decode("utf-8")
-        print("\n",output_xml)
         expected_output = "<text><body><p>1 <tag1Span spanTo=\"test1\"/>2 3 4<anchor xml_id=\"test1\"/> 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
-        print("\n", expected_output)
-
 
         self.assertTrue(
             output_xml == expected_output
@@ -315,10 +312,8 @@ class TestStandoffConverter(unittest.TestCase):
             )
         
         output_xml = etree.tostring(so.text_el).decode("utf-8")
-        print("\n", output_xml)
-
         expected_output = "<text><body><p>1 <tag2Span spanTo=\"test2\"/>2 3 4 5 6 7 9 10</p><p> 11<lb/> <anchor xml_id=\"test2\"/>12 13 14</p></body></text>"
-        print("\n", expected_output)
+
         self.assertTrue(
             output_xml == expected_output
         )
