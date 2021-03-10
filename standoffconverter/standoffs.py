@@ -372,6 +372,37 @@ class Converter:
         )
 
         self.__update_so2el_lookup(new_so2el)
+        
+
+    def add_span(self, id, **tag_dict):
+        """Add a span element to the structure. 
+        arguments:
+        begin (int)-- beginning character position within the XML
+        end (int)-- ending character position within the XML
+        tag (str)-- tag name, for example 'text' for <text>.
+        depth (int)-- depth where to add the element. If None, it will be added deepest
+        """
+        self.ensure_cache()
+        
+        #add span start
+        self.add_inline(
+            begin=tag_dict["begin"],
+            end=tag_dict["begin"],
+            tag=tag_dict["tag"]+"Span",
+            depth=tag_dict["depth"],
+            attrib={"spanTo":id}
+            )
+        
+        #add anchor
+        self.add_inline(
+            begin=tag_dict["end"],
+            end=tag_dict["end"],
+            tag="anchor",
+            depth=tag_dict["depth"],
+            attrib={"xml_id":id}
+            )
+        
+        return
 
 
 class Context(list):

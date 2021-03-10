@@ -275,6 +275,48 @@ class TestStandoffConverter(unittest.TestCase):
         self.assertTrue(
             output_xml == expected_output
         )
+        
+        
+    def test_span_1(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Converter(tree)
+        so.ensure_cache()
+    
+        so.add_span(
+            id="test1",
+            begin=2,
+            end=7, 
+            tag="tag1",
+            depth=None
+            )
+        
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
+        expected_output = "<text><body><p>1 <tag1Span spanTo=\"test1\"/>2 3 4<anchor xml_id=\"test1\"/> 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
+
+        self.assertTrue(
+            output_xml == expected_output
+        )
+
+        
+    def test_span_2(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Converter(tree)
+        so.ensure_cache()
+    
+        so.add_span(
+            id="test2",
+            begin=2,
+            end=22, 
+            tag="tag2",
+            depth=None
+            )
+        
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
+        expected_output = "<text><body><p>1 <tag2Span spanTo=\"test2\"/>2 3 4 5 6 7 9 10</p><p> 11<lb/> <anchor xml_id=\"test2\"/>12 13 14</p></body></text>"
+
+        self.assertTrue(
+            output_xml == expected_output
+        )
 
 if __name__ == '__main__':
     unittest.main()
