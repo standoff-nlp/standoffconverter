@@ -3,9 +3,12 @@ import numpy as np
 import pandas as pd
 import json
 from contextlib import contextmanager
-from copy import deepcopy
-
-class Converter:
+from copy import deepcopy as dc
+from .converters import flat_tree2position_table, flatten_tree, standoff2tree
+from .utils import is_empty_el, strip_ns, get_order_for_traversal, create_el_from_so
+        
+        
+class Standoff:
     """Contains a reference to the etree.Element object and the corresponding ContextItem object to link the two representations.
     """
     def __init__(self, tei_tree, namespaces={}):
@@ -15,7 +18,7 @@ class Converter:
             tei_tree (etree.Element): the etree.Element instance.
 
         returns:
-            (Converter): The created Converter instance.
+            (Standoff): The created Standoff instance.
         """
 
         if "tei" not in namespaces:
@@ -31,35 +34,12 @@ class Converter:
         else:
             self.text_el = texts[0]
 
-        # Caches
-        self.reset_cache()
-
-    @contextmanager
-    def cached_standoff(self):
-        try:
-            self.populate_cache()
-            yield
-        finally:
-            self.reset_cache()
-
-    def populate_cache(self):
-        self.table_, self.so2el, self.el2so = tree_to_standoff(self.text_el)
-        self.plaintext = "".join(self.table.text)
-
-    def reset_cache(self):
-        self.el2so = None
-        self.so2el = None
-        self.table_ = None
-        self.plaintext = None
-
-    def ensure_cache(self):
-        if self.table_ is None:
-            self.populate_cache()
+        flat_tree = flatten_tree(self.text_el)
+        self.table_ = flat_tree2position_table(flat_tree)
 
     @property
     def table(self):
         """Table with each character and context of the <text> element of the tei tree. Index  is character position inside <text> element of te TEI XML."""
-        self.ensure_cache()
         return self.table_
     
     @property
@@ -67,44 +47,48 @@ class Converter:
         """tree of the TEI XML."""
         return self.tei_tree
 
-
     @property
     def plain(self):
         """Plain text string of all text inside the <text> element of the TEI XML."""
-        self.ensure_cache()
-        return self.plaintext
+        return self.table.get_text()
 
     @property
     def standoffs(self):
         """List of standoff elements of the <text> element fo the TEI XML. Items are traversed in depth-first preorder."""
+        elements = {}
+        for position, row_type, el, depth, text in self.table:
 
-        self.ensure_cache()
-
-        context = list(set([so for context in self.table.context for so in context]))
-        
-        context = sorted(
-            sorted(
-                sorted(
-                    context,
-                    key=lambda x: x.depth
-                ),
-                key=lambda x:  (x.begin - x.end)
-            ),
-            key=lambda x: x.begin
-        )
-
-        return context
+            if row_type in ["open", "empty"]:
+                elements[el] = {
+                    "el": el,
+                    "begin": position,
+                    "end": None,
+                    "depth": depth
+                }
+            if row_type in ["close", "empty"]:
+                elements[el]["end"] = position
+            
+        return get_order_for_traversal(list(elements.values()))
 
     @property
     def json(self):
         """JSON string of standoff elements of the <text> element fo the TEI XML. Items are traversed in depth-first preorder."""
-        return json.dumps(list(map(lambda x: x.to_dict(), self.standoffs)))
+        so_as_json = []
+        for standoff in self.standoffs:
+            so_as_json.append({
+                "tag": standoff["el"].tag,
+                "attrib": dict(standoff["el"].attrib),
+                "begin": int(standoff["begin"]),
+                "end": int(standoff["end"]),
+                "depth": int(standoff["depth"]),
+            })
+        
+        return json.dumps(so_as_json)
         
     @property
     def collapsed_table(self):
         """Table with text and context of the <text> element of the tei tree. All leaf/tail text with the same context is joined."""
-        self.ensure_cache()
-        return collapse_table(self.table)
+        return self.table.collapse()
 
     def get_parents(self, begin, end, depth=None):
         """Get all parent context.
@@ -117,31 +101,30 @@ class Converter:
         returns:
             parents (list) -- list of parent elements ordered by depth (closest is last).
         """
-        mask = np.zeros(len(self.table), dtype=bool)
-        # include only slightly more than all children
-        mask[max(0,begin-1):min(len(self.table),end+1)] = True 
-        # exlcude children
-        mask[begin+1:end-1] = False
-        
-        filtered_table = self.table[mask]
-        
-        mask = np.logical_and.reduce([
-            filtered_table.context.apply(lambda x: x[-1].begin<=begin),
-            filtered_table.context.apply(lambda x: x[-1].end>=end)
-        ])
 
-        filtered_table = filtered_table[mask]
+        begin_ctx = self.table.get_context_at_pos(begin)
+        if depth is not None:
+            begin_parents = begin_ctx[:int(depth)]
+        else:
+            begin_parents = begin_ctx
 
-        context = list(set([
-            so 
-                for context in filtered_table.context 
-                    for so in context 
-                        if depth is None or so.depth < depth
-        ]))
+        end_ctx = self.table.get_context_at_pos(end-1)
+        if depth is not None:
+            end_parents = end_ctx[:int(depth)]
+        else:
+            end_parents = end_ctx
 
-        context = sorted(context, key=lambda x: x.depth)
+        if len(begin_parents) > len(end_parents):
+            parents = end_parents
+        elif len(begin_parents) < len(end_parents):
+            parents = begin_parents
+        else:
+            parents = begin_parents
 
-        return context
+        if begin_parents != end_parents:
+            raise ValueError("no unique context found")
+
+        return parents
 
     def get_children(self, begin, end, depth):
         """Get all children context.
@@ -154,160 +137,38 @@ class Converter:
         returns:
             children (list) -- list of children elements ordered by depth (closest is first).
         """
+
+        begin_ctx = self.table.get_context_at_pos(begin)
+        
         if depth is None:
-            return []
+            depth = len(begin_ctx)
 
-        if end <= begin:
-            return []
-            
-        filtered_table = self.table.loc[begin:end-1]
-
-        mask = np.logical_and.reduce([
-            filtered_table.context.apply(lambda x: x[-1].begin>=begin),
-            filtered_table.context.apply(lambda x: x[-1].end<=end),
-        ])
-
-        filtered_table = filtered_table[mask]
-
-        context = list(set([
-            so 
-                for context in filtered_table.context 
-                    for so in context 
-                        if so.depth >= depth
-        ]))
-
-        context = sorted(context, key=lambda x: x.depth)
-
-        return context
+        children = set(begin_ctx[int(depth):])
+        for pos in range(begin+1, end+1):
+            ctx = self.table.get_context_at_pos(begin)
+            children.union(set(ctx[int(depth):]))
+    
+        return list(children)
         
     def add_standoff(self, begin, end, tag, attrib):
         raise NotImplementedError()
 
     def __replace_el(self, old_el, new_el):
 
-        old_so = self.el2so[old_el]
-
-        second_parents = self.get_parents(
-            old_so.begin,
-            old_so.end,
-            old_so.depth
-        )
+        second_parent = old_el.getparent()
 
         # and replace the subtree
-        if len(second_parents) == 0:
+        if second_parent is None:
             new_el.tail = self.text_el.tail
             self.text_el = new_el
         else:
-
-            second_parent = self.so2el[second_parents[-1]]
-            
             new_el.tail = old_el.tail
             second_parent.replace(
                 old_el,
                 new_el
             )
 
-    def __update_so2el_lookup(self, new_so2el):
-
-        for new_so, new_el in new_so2el.items():
-
-            if new_so in self.so2el:
-                old_el = self.so2el[new_so]
-                del self.el2so[old_el]
-
-            self.so2el[new_so] = new_el
-            self.el2so[new_el] = new_so
-
-    def __get_part_to_update(self, table, depth):
-        to_update = []
-        for context in table.context:
-            to_update.append(context[depth:])
-
-        return pd.DataFrame.from_dict({
-            "context": to_update,
-            "text": table.text
-        })
-
-    def remove_inline(self, del_so):
-        """Remove a standoff element from the structure. 
-        The standoff element will be removed from the caches and from the etree.
-        
-        arguments:
-        del_so (ContextItem)-- the element that should be removed
-
-        """
-
-        self.ensure_cache()
-        # First, get parents and children
-        del_so_table = self.table.loc[del_so.begin:del_so.end-1]
-
-        if len(del_so_table) == 0:
-            del_so_table = self.table.loc[del_so.begin:del_so.end]
-            del_so_table = del_so_table[
-                del_so_table.T.apply(lambda x: del_so in x.context)
-            ]
-
-        parent = self.get_parents(del_so.begin, del_so.end, del_so.depth)[-1]
-
-        parent_table = self.table.loc[parent.begin:parent.end-1]
-
-        children = self.get_children( 
-            del_so.begin,
-            del_so.end,
-            del_so.depth 
-        )
-        
-        # DEPTH handling 
-        # decrease children's depth by one
-        for child in children:
-            child.depth -= 1
-
-        # actually removing the new standoff element
-        for _,row in del_so_table.iterrows():
-            row.context.remove(del_so)
-
-        # if it was an empty element, remove the row as a cleanup operation
-        if del_so.begin == del_so.end:
-            self.table.drop(
-                del_so_table.index,
-                inplace=True
-            )
-
-        # extract part of the standoff table that needs to be recreated
-        # as etree
-        to_update = self.__get_part_to_update(parent_table, parent.depth)
-
-        # now, recreate the subtree this element is in
-        new_parent_el, new_so2el = standoff_to_tree(to_update)
-
-        self.__replace_el(
-            self.so2el[parent],
-            new_parent_el
-        )
-        
-        # remove deleted element from lookups
-        del self.el2so[self.so2el[del_so]]
-        del self.so2el[del_so]
-
-        self.__update_so2el_lookup(new_so2el)
-
-    
-    def __validate_add_inline(self, new_so, parents, children):
-
-        if len(parents) == 0:
-            raise ValueError("no unique parent element found.")
-
-        parent = parents[-1]
-        
-        new_so_table = self.table.loc[new_so.begin:new_so.end-1]
-        
-        spurious_children = [c for _,row in new_so_table.iterrows() for c in row.context if c.depth >= parent.depth+1 and c not in children]
-
-        if len(spurious_children) > 0:
-            raise ValueError("Spurious children found.")
-
-
-    def add_inline(self, **tag_dict):
+    def add_inline(self, begin, end, tag, depth=None, attrib=None):
         """Add a standoff element to the structure. 
         The standoff element will be added to the caches and to the etree.
         
@@ -319,62 +180,98 @@ class Converter:
         attrib (dict)-- dictionary of items that go into the attrib of etree.Element. Ultimately, attributes within tags. for example {"resp":"machine"} will result in <SOMETAG resp="machine">.
         """
 
-        self.ensure_cache()
+        attrib = attrib if attrib is not None else {}
         
-        # First, create new standoff element and get parents and children
-        new_so = ContextItem(tag_dict)
-        new_so_table = self.table.loc[new_so.begin:new_so.end-1]
-        if len(new_so_table) == 0:
-            # empty element requires placeholder to be inserted into `self.table`
-            c_base_index = self.table.loc[new_so.begin].iloc[-1].name
-            self.table.loc[(new_so.begin, c_base_index-.5), :] = np.array((
-                Context(self.table.loc[new_so.begin].iloc[-1].context),
-                ""
-            ), dtype=object)
-            self.table.sort_index(inplace=True)
-            self.table.index = self.table.index.set_levels(range(len(self.table)),level=1)
-            new_so_table = self.table.loc[new_so.begin:new_so.end].iloc[-2:-1]
+        # First, create a new element and get parents and children
+        new_el = create_el_from_so(tag, attrib)
+        parents = self.get_parents(begin, end, depth)
 
-        parents = self.get_parents(new_so.begin, new_so.end, new_so.depth)
-        children = self.get_children(new_so.begin, new_so.end, new_so.depth)
-
-        self.__validate_add_inline(
-            new_so,
-            parents,
-            children
-        )
         parent = parents[-1]
 
-        parent_table = self.table.loc[parent.begin:parent.end-1]
         # DEPTH handling 
         # set own depth and increase children's depth by one
-        new_so.depth = parent.depth + 1
-
+        new_depth = depth if depth is not None else len(parents)
+        
+        children = self.get_children(begin, end, new_depth)
+  
         for child in children:
-            child.depth += 1
+            child_depth = self.table.df[self.table.df.el==child].iloc[0].depth
+            self.table.set_el(child, {"depth":child_depth+1} )
 
-        # actually inserting the new standoff element
-        for _,row in new_so_table.iterrows():
-            row.context.insert(new_so.depth, new_so)
-
-
+        if begin == end:
+            self.table.insert_empty(begin, new_el, new_depth)
+        else:
+            self.table.insert_open(begin, new_el, new_depth)
+            self.table.insert_close(end, new_el, new_depth)
         # extract part of the standoff table that needs to be recreated
         # as etree
-        to_update = self.__get_part_to_update(parent_table, parent.depth)
+        parent_begin, parent_end = self.table.df.loc[self.table.df.el == parent].index
+        to_update = self.table.df.iloc[parent_begin:parent_end]
 
         # now, recreate the subtree this element is in
-        new_parent_el, new_so2el = standoff_to_tree(to_update)
+        new_parent_el, old_els2new_els = standoff2tree(to_update)
         
-
+        for old_el, new_el in old_els2new_els.items():
+            self.table.set_el(old_el, {"el": new_el})
         self.__replace_el(
-            self.so2el[parent],
+            parent,
             new_parent_el
         )
 
-        self.__update_so2el_lookup(new_so2el)
+    def remove_inline(self, del_el):
+        """Remove a standoff element from the structure. 
+        The standoff element will be removed from the caches and from the etree.
+        
+        arguments:
+        del_el (etree.Element)-- the element that should be removed
+
+        """
+        el_open_row = self.table.df[np.logical_and(
+            self.table.df.el == del_el,
+            self.table.df.row_type.isin(["open", "empty"])
+        )].iloc[0]
+
+        el_close_row = self.table.df[np.logical_and(
+            self.table.df.el == del_el,
+            self.table.df.row_type.isin(["close", "empty"])
+        )].iloc[0]
+
+        begin = el_open_row.position
+        end = el_close_row.position
+        depth = el_open_row.depth
+
+        parents = self.get_parents(begin, end, depth)
+
+        parent = parents[-1]
+
+        children = self.get_children(begin, end, depth)
+        
+        # DEPTH handling 
+        # decrease children's depth by one
+        for child in children:
+            child_depth = self.table.df[self.table.df.el==child].iloc[0].depth
+            self.table.set_el(child, {"depth":child_depth-1} )
+
+        self.table.remove_el(del_el)
+
+        # extract part of the standoff table that needs to be recreated
+        # as etree
+        parent_begin, parent_end = self.table.df.loc[self.table.df.el == parent].index
+        to_update = self.table.df.iloc[parent_begin:parent_end]
+
+        # now, recreate the subtree this element is in
+        new_parent_el, old_els2new_els = standoff2tree(to_update)
+
+        for old_el, new_el in old_els2new_els.items():
+            self.table.set_el(old_el, {"el": new_el})
+            
+        self.__replace_el(
+            parent,
+            new_parent_el
+        )
         
 
-    def add_span(self, id, **tag_dict):
+    def add_span(self, id_, **tag_dict):
         """Add a span element to the structure. 
         arguments:
         begin (int)-- beginning character position within the XML
@@ -382,15 +279,18 @@ class Converter:
         tag (str)-- tag name, for example 'text' for <text>.
         depth (int)-- depth where to add the element. If None, it will be added deepest
         """
-        self.ensure_cache()
         
         #add span start
+
+        attrib = {"spanTo":id_}
+        if tag_dict["attrib"] is not None:
+            attrib.update(tag_dict["attrib"])
         self.add_inline(
             begin=tag_dict["begin"],
             end=tag_dict["begin"],
             tag=tag_dict["tag"]+"Span",
             depth=tag_dict["depth"],
-            attrib={"spanTo":id}
+            attrib=attrib
             )
         
         #add anchor
@@ -399,267 +299,5 @@ class Converter:
             end=tag_dict["end"],
             tag="anchor",
             depth=tag_dict["depth"],
-            attrib={"xml_id":id}
+            attrib={"id":id_}
             )
-        
-        return
-
-
-class Context(list):
-    
-    def __str__(self):
-        return ">".join(map(str, self))
-
-    def strip_ns(self):
-        return ">".join(map(lambda x: x.strip_ns(), self))
-
-
-class ContextItem:
-    """Wrapper class for the basic standoff properties."""
-    def __init__(self, dict_):
-        self.tag = dict_["tag"] if "tag" in dict_ else None
-        self.attrib = dict(dict_["attrib"]) if "attrib" in dict_ else None
-        self.begin = dict_["begin"] if "begin" in dict_ else None
-        self.end = dict_["end"] if "end" in dict_ else None
-        self.depth = dict_["depth"] if "depth" in dict_ else None
-
-    def strip_ns(self):
-        return (
-            self.tag[self.tag.index("}")+1:]
-            if "}" in self.tag else
-            self.tag
-        )
-
-    def __str__(self):
-        return self.tag
-
-    def __repr__(self):
-        return f"{self.tag}-{hex(id(self))}"
-
-    def to_dict(self):
-        return {
-            "tag": self.tag,
-            "attrib": self.attrib,
-            "begin": self.begin,
-            "end": self.end,
-            "depth": self.depth
-        }
-
-
-class View:
-
-    def __init__(self, so, mask, replaces={"lb": "\n"}):
-        
-        # 1. apply argument mask
-        self.filtered_table = deepcopy(so.table[mask])
-
-
-        # 2. strip all multiple whitespace and reduce it to one `" "`
-        strip_mask = pd.Series(
-            np.ones(len(self.filtered_table)),
-            index=self.filtered_table.index,
-            dtype=bool
-        )
-
-        grouper = (
-            np.logical_and(
-                self.filtered_table.text.shift(fill_value=" ").isin([' ', '\t', '\n']), 
-                self.filtered_table.text.isin([' ', '\t', '\n'])
-            )
-        )
-
-        for group_, subdf in self.filtered_table.groupby(grouper):
-            if group_:
-                group__ = grouper[grouper==group_].index
-                strip_mask[group__[1:]] = False
-                self.filtered_table[group__[0], "text"] = " "
-
-        self.filtered_table.text = self.filtered_table.text.apply(lambda x: x.replace("\n", " "))
-        self.filtered_table = self.filtered_table[strip_mask]
-
-        # apply all argument replaces
-        for from_,to in replaces.items():
-
-            inds = self.filtered_table[
-                self.filtered_table.context.apply(
-                    lambda ctx: any([ctit.strip_ns() == from_ for ctit in ctx])
-                )
-            ].index
-
-            self.filtered_table.loc[inds, "text"] = to
-
-        self.viewinds2soinds = self.filtered_table.index.get_level_values(0)
-        self.plain = "".join(self.filtered_table.text)
-
-    def standoff_char_pos(self, ind):
-        return self.viewinds2soinds[ind]
-
-
-def iter_collapsed_table(table):
-    context = table.context.apply(tuple)
-    grouper = (context != context.shift()).cumsum()
-    for group, subdf in table.groupby(grouper):
-        group_ = grouper[grouper==group].index
-        yield group_, subdf.iloc[0].context, "".join(subdf.text)
-
-def collapse_table(table):
-        """Pandas Dataframe with standoff elements and texts aligned. text within the same element is grouped"""
-
-        collapsed = []
-        for group, context, text in iter_collapsed_table(table):
-            
-            collapsed.append({
-                "context": context,
-                "text": text
-            })
-
-        return pd.DataFrame(collapsed)
-
-
-def create_el_from_so(c_so):
-    el = etree.Element(c_so.tag)
-    for k,v in c_so.attrib.items():
-        el.set(k,v)
-    return el
-
-
-def get_table_from_pair_collection(plain, pair_collection):
-    order = __get_order_for_traversal(pair_collection)
-
-    plain = [c for c in plain]
-    positions = list(range(len(plain)))
-    pos2so = [Context() for _ in range(len(plain))]
-    so2el = {}
-    el2so = {}
-    offset = 0
-
-    for c_so, c_el in order:
-
-        so2el[c_so] = c_el
-        el2so[c_el] = c_so
-
-        for pos in range(c_so.begin, c_so.end):
-            pos2so[pos+offset].append(c_so)
-        
-        # handling of empty elements
-        if c_so.begin == c_so.end:
-            pos = c_so.begin
-            base_index = pos+offset
-            pos2so.insert(pos, Context(pos2so[base_index]))
-            pos2so[base_index].append(c_so)
-            
-            plain.insert(base_index, "")
-            positions.insert(base_index, positions[base_index])
-            offset +=1
-
-    table = pd.DataFrame([
-            positions,
-            list(range(len(positions))),
-            pos2so,
-            plain
-        ],
-        index=['position', 'base_index', 'context', 'text']
-    ).T
-
-    table = table.set_index(["position", "base_index"])
-
-    return table, so2el, el2so
-    
-
-def tree_to_standoff(tree):
-    """traverse the tree and create a standoff representation.
-
-    arguments:
-        tree -- the root element of an lxml etree
-
-    returns:
-        plain (str) -- the plain text of the tree
-        collection (list) -- the list of standoff annotations
-    """
-    stand_off_props = {}
-    plain = []
-
-    def __traverse_and_parse(el, plain, stand_off_props, depth=0):
-        
-        so = {
-            "begin": len(plain),
-            "tag": el.tag,
-            "attrib": el.attrib,
-            "depth": depth
-        }
-        
-        so = ContextItem(so)
-
-        stand_off_props[el] = (so, el)
-
-        if el.text is not None:
-            plain += [char for char in el.text]
-
-        for gen in el:
-            __traverse_and_parse(gen, plain, stand_off_props, depth=depth+1)
-
-        depth -= 1
-        stand_off_props[el][0].end = len(plain)
-
-        if el.tail is not None and depth>0: # (depth>0) shouldn't add tail for root
-            plain += [char for char in el.tail]
-
-    __traverse_and_parse(tree, plain, stand_off_props)
-
-    plain, pair_collection = "".join(plain), [v for k,v in stand_off_props.items()]
-    
-    table, so2el, el2so = get_table_from_pair_collection(plain, pair_collection)
-
-    return table, so2el, el2so
-
-
-def __get_order_for_traversal(so):
-    return sorted(
-        sorted(
-            sorted(
-                so,
-                key=lambda x: x[0].depth
-            ),
-            key=lambda x:  (x[0].begin - x[0].end)
-        ),
-        key=lambda x: x[0].begin
-    )
-
-
-def standoff_to_tree(table):
-    """convert the standoff representation to a etree representation
-
-    arguments:
-        table -- standoff object
-
-    returns:
-        tree (str) -- the root element of the resulting tree
-    """
-    so2el = {}
-    collapsed_table = collapse_table(table)
-    for _,row in collapsed_table.iterrows():
-        
-        c_parents = []
-        for it in row.context:
-            if it not in so2el:
-                new_el = create_el_from_so(it)
-                so2el[it] = new_el
-
-            c_parents.append(so2el[it])
-                
-        for i_parent in range(len(c_parents)-1):
-            c_parent = c_parents[i_parent]
-            c_child = c_parents[i_parent+1]
-            if c_child not in c_parent:
-                c_parent.append(c_child)
-        if len(c_parents[-1]) == 0:
-            if row.text != "":
-                c_parents[-1].text = row.text
-        else:
-            if c_parents[-1][-1].tail is None:
-                c_parents[-1][-1].tail = ""
-            c_parents[-1][-1].tail += row.text
-
-    root = so2el[collapsed_table.iloc[0].context[0]].getroottree().getroot()
-
-    return root, so2el
