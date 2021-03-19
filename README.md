@@ -5,13 +5,13 @@ I intended this package to be used in the following situation:
 Given a bunch of XML files (e.g. standard TEI files), I would like to add new annotations (for example with an ML method). The workflow would then be
 
 ```
-import standoffconverter.Converter as Co
+from standoffconverter import Standoff
 
 # 1. load the original TEI file and convert it to standoff format
-converter = Co(some_xml_tree)
+so = Standoff(some_xml_tree)
 
 # 2. create new annotations (automatically) and add them to the original
-converter.add_inline(
+so.add_inline(
             begin=begin,
             end=end,
             tag="SOMETAG",
@@ -20,7 +20,7 @@ converter.add_inline(
         )
 
 # 3. store the modified XML
-new_tree = converter.tei_tree
+new_tree = so.tei_tree
 ```
 # Documentation
 [https://standoffconverter.readthedocs.io](https://standoffconverter.readthedocs.io/)
