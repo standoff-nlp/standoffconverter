@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+from copy import copy as sc
 
 from .utils import strip_ns, is_empty_el
 
@@ -130,21 +131,18 @@ class PositionTable:
             # Deal with starting context
             if c_context is None and txt is not None:
                 # first text item
-                c_context = new_context
+                c_context = sc(new_context)
 
             if new_context != c_context and txt is not None:
-
                 collapsed_table.append({
                     "context": c_context.strip_ns(),
                     "text": text_buffer
                 })
                 text_buffer = ""
 
-                c_context = new_context
+                c_context = sc(new_context)
             
             # include empty elements
-            if len(new_context) == 0:
-                import pdb; pdb.set_trace()
             el = new_context[-1]
             if is_empty_el(el):
                 if len(text_buffer)>0:
