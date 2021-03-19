@@ -22,6 +22,7 @@ plain, lookup = view.get_plain()
 ```
 
 Note that a lookup table is also returned that keeps the links between the character position in `plain` and its original position in the `so.table`. 
+
 3. pass the resulting plain text into an NLP pipeline and retrieve results on character level (for example Named Entities): 
 ```
 for ent in nlp(plain).ents:
