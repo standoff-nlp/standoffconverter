@@ -1,6 +1,6 @@
 # standoffconverter
 
-
+## Simple use case
 I intended this package to be used in the following situation:
 Given a collection of TEI files, I would like to add new annotations (for example with an ML method). The workflow would include the following steps:
 
@@ -22,5 +22,7 @@ so.add_inline(
     tag="entity",
 )
 ```
+## Examples
+[https://github.com/standoff-nlp/standoffconverter/tree/master/examples](Find more examples here)
 # Documentation
 [https://standoffconverter.readthedocs.io](https://standoffconverter.readthedocs.io/)
