@@ -67,7 +67,22 @@ class View:
         self.table = table
         self.export = dc(self.table.df.text.values)
 
-    def exclude(self, tag_list):
+    def exclude_outside(self, tag_list):
+        """exclude all text outside any of the tags in a list of tags.
+        
+        arguments:
+        tag_list (list)-- for example `['note']` or `["{http://www.tei-c.org/ns/1.0}note", "{http://www.tei-c.org/ns/1.0}abbr"]`
+
+        returns:
+            self (int) for chainability.
+        """
+        for tag in tag_list:
+            mask = np.zeros(len(self.table.df), dtype=bool)
+            return self.__exclude_generic(tag, mask, True)
+            
+        return self
+
+    def exclude_inside(self, tag_list):
         """exclude all text within any of the tags in a list of tags.
         
         arguments:
@@ -77,18 +92,17 @@ class View:
             self (int) for chainability.
         """
         for tag in tag_list:
-            self.__exclude_single(tag)
+            mask = np.ones(len(self.table.df), dtype=bool)
+            return self.__exclude_generic(tag, mask, False)
             
         return self
 
-    def __exclude_single(self, tag):
-
+    def __exclude_generic(self, tag, mask, application):
         found_rows = self.table.df.loc[
             self.table.df.el.apply(lambda x:None if x is None else x.tag) == tag
         ]
         if len(found_rows) == 0:
             return self
-        mask = np.ones(len(self.table.df), dtype=bool)
 
         open_stack = {}
         for irow, row in found_rows.iterrows():
@@ -96,10 +110,11 @@ class View:
                 open_stack[row.el] = irow
             elif row.row_type == "close":
                 if row.el in open_stack:
-                    mask[open_stack[row.el]: irow] = False
+                    mask[open_stack[row.el]: irow] = application
 
         self.export[~mask] = None
         return self
+
 
     def insert_tag_text(self, map_):
         """insert a custom character to the plain text for all occurrences of the tag.
