@@ -41,7 +41,20 @@ class Standoff:
 
     @property
     def table(self):
-        """Table as a flattened TEI tree and additional character-position information."""
+        """Table as a flattened TEI tree and additional character-position information. The data of the table actually resides at
+        ```>>> table.df
+    position row_type      el  depth  text
+0          0     open    text    0.0  None
+1          0     open    body    1.0  None
+2          0     open       p    2.0  None
+3          0     text    None    NaN     1
+4          1     text    None    NaN
+5          2     text    None    NaN     2
+6          3     text    None    NaN
+7          4     text    None    NaN     3
+8         30    close       p    2.0  None
+9         30    close    body    1.0  None
+10        30    close    text    0.0  None``` where the column `position` refers to the character position and `el` is a pointer to the actual etree.Element."""
         return self.table_
     
     @property

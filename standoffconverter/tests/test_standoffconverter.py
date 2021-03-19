@@ -226,6 +226,7 @@ class TestStandoffConverter(unittest.TestCase):
 
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
+        import pdb; pdb.set_trace()
         collapsed_table = so.collapsed_table
 
         self.assertTrue(collapsed_table.iloc[0].text == "1 2 3 4 5 6 7 9 10")
