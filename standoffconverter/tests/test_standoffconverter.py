@@ -268,11 +268,10 @@ class TestStandoffConverter(unittest.TestCase):
             ].text == "5"
         )
 
-
     def test_view_shrink_whitespace(self):
         tree = etree.fromstring(input_xml2)
         so = standoffconverter.Standoff(tree)
-        
+        view = standoffconverter.View(so.table)
         view = view.shrink_whitespace()
         plain, lookup = view.get_plain()
 
@@ -286,6 +285,35 @@ class TestStandoffConverter(unittest.TestCase):
             plain == '1 2 3 4 5 6 7 9 10 11 12 13 14'
         )
 
+    def test_view_insert_tag_text(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff(tree)
+        
+        view = standoffconverter.View(so.table)
+        view.insert_tag_text({"lb": "\n"})
+
+        plain, lookup = view.get_plain()
+
+        self.assertTrue(
+            so.table.df.iloc[
+                lookup.get_table_index(plain.index("12"))
+            ].text == "1"
+        )
+
+        self.assertTrue(
+            plain == '1 2 3 4 5 6 7 9 10 11\n 12 13 14'
+        )
+
+    def test_view_replace_text(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff(tree)
+        view = standoffconverter.View(so.table)
+        view = view.replace_text({"3":"A"})
+        plain, lookup = view.get_plain()
+
+        self.assertTrue(
+            plain == '1 2 A 4 5 6 7 9 10 11 12 1A 14'
+        )
 
     def test_remove_annotation(self):
 
