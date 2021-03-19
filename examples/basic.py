@@ -1,5 +1,5 @@
 from lxml import etree
-from standoffconverter import Converter
+from standoffconverter import Standoff
 
 input_xml = '''<TEI><teiHeader></teiHeader><text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11 12 13 14</p></body></text></TEI>'''
 
@@ -9,22 +9,20 @@ if __name__ == "__main__":
 	print(input_xml)
 
 	tree = etree.fromstring(input_xml)
-	converter = Converter(tree)
+	so = Standoff(tree)
 
-	with converter.cached_standoff():
+	so.add_inline(
+		begin=4,
+		end=7,
+		tag="threefour",
+		attrib={"resp":"David Lassner"},
+		depth=None,
+	)
 
-		converter.add_inline(
-			begin=4,
-			end=7,
-			tag="threefour",
-			attrib={"resp":"David Lassner"},
-			depth=None,
-		)
+	print("Collapsed view:")
+	print(so.collapsed_table)
 
-		print("Collapsed view:")
-		print(converter.collapsed_table)
-
-	new_xml = etree.tostring(converter.text_el).decode("utf-8")
+	new_xml = etree.tostring(so.text_el).decode("utf-8")
 
 	print("\n\n####\nOUTPUT XML")
 

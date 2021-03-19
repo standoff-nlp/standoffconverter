@@ -226,7 +226,6 @@ class TestStandoffConverter(unittest.TestCase):
 
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
-        import pdb; pdb.set_trace()
         collapsed_table = so.collapsed_table
 
         self.assertTrue(collapsed_table.iloc[0].text == "1 2 3 4 5 6 7 9 10")
@@ -248,7 +247,7 @@ class TestStandoffConverter(unittest.TestCase):
         self.assertTrue(expected_out == output_json)
 
 
-    def test_view_exclude(self):
+    def test_view_exclude_1(self):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
         so.add_inline(
@@ -260,13 +259,32 @@ class TestStandoffConverter(unittest.TestCase):
         )
         view = standoffconverter.View(so.table)
         
-        view = view.exclude(["xx"])
+        view = view.exclude_inside(["xx"])
         plain, lookup = view.get_plain()
 
         self.assertTrue(
             so.table.df.iloc[
                 lookup.get_table_index(plain.index("5"))
             ].text == "5"
+        )
+
+    def test_view_exclude_2(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff(tree)
+        so.add_inline(
+            begin=2,
+            end=5,
+            tag="xx",
+            depth=None,
+            attrib={"resp":"machine"}
+        )
+        view = standoffconverter.View(so.table)
+        
+        view = view.exclude_outside(["xx"])
+        plain, lookup = view.get_plain()
+         
+        self.assertTrue(
+            plain == '2 3'
         )
 
     def test_view_shrink_whitespace(self):
