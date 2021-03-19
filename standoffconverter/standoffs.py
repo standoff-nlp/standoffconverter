@@ -283,7 +283,7 @@ class Standoff:
         #add span start
 
         attrib = {"spanTo":id_}
-        if tag_dict["attrib"] is not None:
+        if "attrib" in tag_dict:
             attrib.update(tag_dict["attrib"])
         self.add_inline(
             begin=tag_dict["begin"],

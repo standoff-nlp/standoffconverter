@@ -245,129 +245,133 @@ class TestStandoffConverter(unittest.TestCase):
         self.assertTrue(expected_out == output_json)
 
 
-    # def test_view_1(self):
-    #     tree = etree.fromstring(input_xml1)
-    #     so = standoffconverter.Standoff(tree)
-
-    #     mask = np.zeros(len(so.table), dtype=bool)
-    #     mask[10:20] = True
-    #     view = standoffconverter.View(so, mask)
-    #     self.assertTrue(view.standoff_char_pos(0) == 10)
-
-
-    # def test_remove_annotation(self):
-
-    #     tree = etree.fromstring(input_xml1)
-    #     so = standoffconverter.Standoff(tree)
-    #     to_remove = so.standoffs[2]
-    #     so.remove_inline(to_remove)
-    #     output_xml = etree.tostring(so.text_el).decode("utf-8")
-    #     expected_output = '<text><body>1 2 3 4 5 6 7 9 10<p> 11<lb/> 12 13 14</p></body></text>'
-    #     self.assertTrue(
-    #         output_xml == expected_output
-    #     )
-
-    # def test_add_remove_annotation1(self):
-
-    #     tree = etree.fromstring(input_xml1)
-    #     so = standoffconverter.Standoff(tree)
-    #     so.ensure_cache()
-    #     len_lookupel2so = len(so.el2so)
-    #     len_lookupso2el = len(so.so2el)
-    #     for _ in range(5):
-    #         so.add_inline(
-    #             begin=2,
-    #             end=3,
-    #             tag="vv",
-    #             depth=4,
-    #             attrib={"resp":"machine"}
-    #         )
-
-    #         to_remove = [it for it in so.standoffs if it.tag =='vv'][0]
-
-    #         so.remove_inline(to_remove)
-
-    #     self.assertTrue(len_lookupel2so == len(so.el2so))
-    #     self.assertTrue(len_lookupso2el == len(so.so2el))
-
-    #     output_xml = etree.tostring(so.text_el).decode("utf-8")
-
-    #     expected_output = "<text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
-
-    #     self.assertTrue(
-    #         output_xml == expected_output
-    #     )
-
-    # def test_add_remove_annotation2(self):
-
-    #     tree = etree.fromstring(input_xml1)
-    #     so = standoffconverter.Standoff(tree)
-    #     so.ensure_cache()
-    #     len_lookupel2so = len(so.el2so)
-    #     len_lookupso2el = len(so.so2el)
-    #     for _ in range(5):
-    #         so.add_inline(
-    #             begin=2,
-    #             end=3,
-    #             tag="vv",
-    #             depth=4,
-    #             attrib={"resp":"machine"}
-    #         )
-    #     for _ in range(5):
-    #         to_remove = [it for it in so.standoffs if it.tag =='vv'][0]
-
-    #         so.remove_inline(to_remove)
-
-    #     self.assertTrue(len_lookupel2so == len(so.el2so))
-    #     self.assertTrue(len_lookupso2el == len(so.so2el))
-
-    #     output_xml = etree.tostring(so.text_el).decode("utf-8")
-
-    #     expected_output = "<text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
-
-    #     self.assertTrue(
-    #         output_xml == expected_output
-    #     )
+    def test_view_1(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff(tree)
+        so.add_inline(
+            begin=2,
+            end=4,
+            tag="xx",
+            depth=None,
+            attrib={"resp":"machine"}
+        )
+        view = standoffconverter.View(so.table)
         
-    # def test_span_1(self):
-    #     tree = etree.fromstring(input_xml1)
-    #     so = standoffconverter.Standoff(tree)
-    #     so.ensure_cache()
+        view = view.exclude(["xx"])
+        view = view.shrink_whitespace()
+        plain, lookup = view.get_plain()
+
+        self.assertTrue(
+            so.table.df.iloc[
+                lookup.get_table_index(plain.index("5"))
+            ].text == "5"
+        )
+
+
+    def test_remove_annotation(self):
+
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff(tree)
+        to_remove = so.standoffs[2]
+        so.remove_inline(to_remove["el"])
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
+        expected_output = '<text><body>1 2 3 4 5 6 7 9 10<p> 11<lb/> 12 13 14</p></body></text>'
+        # print("")
+        # print(expected_output)
+        # print(output_xml)
+        self.assertTrue(
+            output_xml == expected_output
+        )
+
+    def test_add_remove_annotation1(self):
+
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff(tree)
+        
+        for _ in range(5):
+            so.add_inline(
+                begin=2,
+                end=3,
+                tag="vv",
+                depth=None,
+                attrib={"resp":"machine"}
+            )
+
+            to_remove = [it['el'] for it in so.standoffs if it["el"].tag =='vv'][0]
+            # import pdb; pdb.set_trace()
+            so.remove_inline(to_remove)
+
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
+        expected_output = "<text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
+        # print(expected_output)
+        # print(output_xml)
+
+        self.assertTrue(
+            output_xml == expected_output
+        )
+
+    def test_add_remove_annotation2(self):
+
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff(tree)
+        
+        for _ in range(5):
+            so.add_inline(
+                begin=2,
+                end=3,
+                tag="vv",
+                depth=3,
+                attrib={"resp":"machine"}
+            )
+        for _ in range(5):
+            to_remove = [it["el"] for it in so.standoffs if it["el"].tag =='vv'][0]
+            so.remove_inline(to_remove)
+
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
+
+        expected_output = "<text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
+
+        self.assertTrue(
+            output_xml == expected_output
+        )
+        
+    def test_span_1(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff(tree)
     
-    #     so.add_span(
-    #         "test1",
-    #         begin=2,
-    #         end=7, 
-    #         tag="tag1",
-    #         depth=None
-    #         )
+        so.add_span(
+            "test1",
+            begin=2,
+            end=7, 
+            tag="tag1",
+            depth=None
+            )
         
-    #     output_xml = etree.tostring(so.text_el).decode("utf-8")
-    #     expected_output = "<text><body><p>1 <tag1Span spanTo=\"test1\"/>2 3 4<anchor id=\"test1\"/> 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
+        expected_output = "<text><body><p>1 <tag1Span spanTo=\"test1\"/>2 3 4<anchor id=\"test1\"/> 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
 
-    #     self.assertTrue(
-    #         output_xml == expected_output
-    #     )
+        self.assertTrue(
+            output_xml == expected_output
+        )
 
-    # def test_span_2(self):
-    #     tree = etree.fromstring(input_xml1)
-    #     so = standoffconverter.Standoff(tree)
-    #     so.ensure_cache()
+    def test_span_2(self):
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff(tree)
     
-    #     so.add_span(
-    #         "test2",
-    #         begin=2,
-    #         end=22, 
-    #         tag="tag2",
-    #         depth=None
-    #         )
+        so.add_span(
+            "test2",
+            begin=2,
+            end=22, 
+            tag="tag2",
+            depth=None
+            )
         
-    #     output_xml = etree.tostring(so.text_el).decode("utf-8")
-    #     expected_output = "<text><body><p>1 <tag2Span spanTo=\"test2\"/>2 3 4 5 6 7 9 10</p><p> 11<lb/> <anchor id=\"test2\"/>12 13 14</p></body></text>"
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
+        expected_output = "<text><body><p>1 <tag2Span spanTo=\"test2\"/>2 3 4 5 6 7 9 10</p><p> 11<lb/> <anchor id=\"test2\"/>12 13 14</p></body></text>"
 
-    #     self.assertTrue(
-    #         output_xml == expected_output
-    #     )
+        self.assertTrue(
+            output_xml == expected_output
+        )
 
 if __name__ == '__main__':
     unittest.main()
