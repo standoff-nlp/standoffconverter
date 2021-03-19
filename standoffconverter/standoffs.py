@@ -41,7 +41,7 @@ class Standoff:
 
     @property
     def table(self):
-        """Table with each character and context of the <text> element of the tei tree. Index  is character position inside <text> element of te TEI XML."""
+        """Table as a flattened TEI tree and additional character-position information."""
         return self.table_
     
     @property

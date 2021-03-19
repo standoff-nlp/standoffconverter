@@ -304,17 +304,6 @@ class TestStandoffConverter(unittest.TestCase):
             plain == '1 2 3 4 5 6 7 9 10 11\n 12 13 14'
         )
 
-    def test_view_replace_text(self):
-        tree = etree.fromstring(input_xml1)
-        so = standoffconverter.Standoff(tree)
-        view = standoffconverter.View(so.table)
-        view = view.replace_text({"3":"A"})
-        plain, lookup = view.get_plain()
-
-        self.assertTrue(
-            plain == '1 2 A 4 5 6 7 9 10 11 12 1A 14'
-        )
-
     def test_remove_annotation(self):
 
         tree = etree.fromstring(input_xml1)
