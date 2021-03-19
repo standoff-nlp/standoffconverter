@@ -75,16 +75,16 @@ class PositionTable:
         self.df.loc[index] = (pos, row_type, el, new_depth, None)
         self.df = self.df.sort_index().reset_index(drop=True)
 
-    def insert_empty(self, pos, el, new_depth):
+    def insert_empty(self, pos, el, new_depth, tail_text="open"):
         row_type = "empty"
         slice_ = self.df[self.df.position == pos]
-        close_pos = np.ravel(np.argwhere(~(slice_.depth>new_depth).values))[0]
-        open_pos = np.ravel(np.argwhere(~(slice_.depth<new_depth).values))[0]
-
-        if open_pos != close_pos:
-            raise ValueError("Not sure where to place element")
-
-        index = slice_.iloc[open_pos].name-.5
+        
+        if tail_text == "text":
+            chosen_ind = np.ravel(np.argwhere(~(slice_.depth<new_depth).values))[0]
+        else:
+            chosen_ind = np.ravel(np.argwhere(~(slice_.depth>new_depth).values))[0]
+        
+        index = slice_.iloc[chosen_ind].name-.5
         self.df.loc[index] = (pos, row_type, el, new_depth, None)
         self.df = self.df.sort_index().reset_index(drop=True)
 
@@ -143,6 +143,8 @@ class PositionTable:
                 c_context = new_context
             
             # include empty elements
+            if len(new_context) == 0:
+                import pdb; pdb.set_trace()
             el = new_context[-1]
             if is_empty_el(el):
                 if len(text_buffer)>0:

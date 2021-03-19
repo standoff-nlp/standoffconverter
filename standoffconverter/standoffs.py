@@ -33,6 +33,8 @@ class Standoff:
             raise ValueError("More than one text element is not supported.")
         else:
             self.text_el = texts[0]
+        
+        self.text_el.tail = None # remove trailing whitespace of text element
 
         flat_tree = flatten_tree(self.text_el)
         self.table_ = flat_tree2position_table(flat_tree)
@@ -108,7 +110,7 @@ class Standoff:
         else:
             begin_parents = begin_ctx
 
-        end_ctx = self.table.get_context_at_pos(end-1)
+        end_ctx = self.table.get_context_at_pos(max(begin, end-1))
         if depth is not None:
             end_parents = end_ctx[:int(depth)]
         else:
@@ -281,7 +283,6 @@ class Standoff:
         """
         
         #add span start
-
         attrib = {"spanTo":id_}
         if "attrib" in tag_dict:
             attrib.update(tag_dict["attrib"])
