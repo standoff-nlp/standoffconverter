@@ -23,6 +23,6 @@ so.add_inline(
 )
 ```
 ## Examples
-[https://github.com/standoff-nlp/standoffconverter/tree/master/examples](Find more examples here)
+[Find more examples here](https://github.com/standoff-nlp/standoffconverter/tree/master/examples)
 # Documentation
 [https://standoffconverter.readthedocs.io](https://standoffconverter.readthedocs.io/)
