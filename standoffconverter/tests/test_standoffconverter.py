@@ -7,6 +7,8 @@ import standoffconverter
 
 input_xml1 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text></TEI>'''
 
+input_xml2 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2 3 4   \n 5 6\t 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text></TEI>'''
+
 
 file_xml1 = os.path.join(os.path.dirname(__file__), 'xml1.xml')
 
@@ -245,7 +247,7 @@ class TestStandoffConverter(unittest.TestCase):
         self.assertTrue(expected_out == output_json)
 
 
-    def test_view_1(self):
+    def test_view_exclude(self):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
         so.add_inline(
@@ -258,13 +260,30 @@ class TestStandoffConverter(unittest.TestCase):
         view = standoffconverter.View(so.table)
         
         view = view.exclude(["xx"])
-        view = view.shrink_whitespace()
         plain, lookup = view.get_plain()
 
         self.assertTrue(
             so.table.df.iloc[
                 lookup.get_table_index(plain.index("5"))
             ].text == "5"
+        )
+
+
+    def test_view_shrink_whitespace(self):
+        tree = etree.fromstring(input_xml2)
+        so = standoffconverter.Standoff(tree)
+        
+        view = view.shrink_whitespace()
+        plain, lookup = view.get_plain()
+
+        self.assertTrue(
+            so.table.df.iloc[
+                lookup.get_table_index(plain.index("7"))
+            ].text == "7"
+        )
+
+        self.assertTrue(
+            plain == '1 2 3 4 5 6 7 9 10 11 12 13 14'
         )
 
 
@@ -276,9 +295,6 @@ class TestStandoffConverter(unittest.TestCase):
         so.remove_inline(to_remove["el"])
         output_xml = etree.tostring(so.text_el).decode("utf-8")
         expected_output = '<text><body>1 2 3 4 5 6 7 9 10<p> 11<lb/> 12 13 14</p></body></text>'
-        # print("")
-        # print(expected_output)
-        # print(output_xml)
         self.assertTrue(
             output_xml == expected_output
         )
