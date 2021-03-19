@@ -2,25 +2,25 @@
 
 
 I intended this package to be used in the following situation:
-Given a bunch of XML files (e.g. standard TEI files), I would like to add new annotations (for example with an ML method). The workflow would then be
+Given a collection of TEI files, I would like to add new annotations (for example with an ML method). The workflow would include the following steps:
 
+1. create a standoff representation of the lxml Tree (`so = Standoff(some_xml_tree)`)
+2. create a view of the standoff data that works well for NLP methods, such as converting `<lb>` into `\n` or strip multiple white spaces into a single one (`view = View(so.table).shrink_whitespace().insert_tag_text({"{http://www.tei-c.org/ns/1.0}lb": "\n",})`). The resulting text can be retrieved by `plain, lookup = view.get_plain()`, note that a lookup table is also returned that keeps the links between the character position in `plain` and its original position in the `so.table`. 
+3. pass the resulting plain text into an NLP pipeline and retrieve results on character level (for example Named Entities): 
 ```
-from standoffconverter import Standoff
+for ent in nlp(plain).ents:
+    break;
+```
+4. use the lookups to annotate the original lxml Tree
+```
+start_ind = lookup.get_pos(ent.start_char)
+end_ind = lookup.get_pos(ent.end_char+1)
 
-# 1. load the original TEI file and convert it to standoff format
-so = Standoff(some_xml_tree)
-
-# 2. create new annotations (automatically) and add them to the original
 so.add_inline(
-            begin=begin,
-            end=end,
-            tag="SOMETAG",
-            depth=None,
-            attrib={}
-        )
-
-# 3. store the modified XML
-new_tree = so.tei_tree
+    begin=start_ind,
+    end=end_ind,
+    tag="entity",
+)
 ```
 # Documentation
 [https://standoffconverter.readthedocs.io](https://standoffconverter.readthedocs.io/)
