@@ -4,6 +4,8 @@ from copy import deepcopy as dc
 from .utils import is_empty_el, strip_ns, create_el_from_so
 from .base import PositionTable, Context
 
+
+
 def flatten_tree(tree):
     """Convert an etree into a list of tuples."""
     flat_tree = []
@@ -74,32 +76,42 @@ def standoff2tree(table):
     text_tail = None
     root = None
 
+    open_type_str = "open"
+    close_type_str = "close"
+    empty_type_str = "empty"
+    text_type_str = "text"
+
+
     old2new = {}
 
     for irow, row in table.iterrows():
+
+        row_type = row.row_type
+        row_text = row.text
 
         if row.el is not None and row.el not in old2new:
             curr_el = create_el_from_so(dc(row.el.tag), dc(row.el.attrib))
             old2new[row.el] = curr_el
 
-        if row.row_type == "open":
+        if row_type == text_type_str:
+            append_text_to_el(curr_el, text_tail, row.text)
+            
+        elif row_type == open_type_str:
             curr_context.append(curr_el)
             if len(curr_context) > 1:
                 curr_context[-2].append(curr_context[-1])
             text_tail = "text"
 
-        elif row.row_type == "close":
+        elif row_type == close_type_str:
             curr_el = curr_context[-1]
             curr_context = Context(curr_context[:-1])
             text_tail = "tail"
             
-        elif row.row_type == "empty":
+        elif row_type == empty_type_str:
             if len(curr_context) > 0:
                 curr_context[-1].append(curr_el)
             text_tail = "tail"
 
-        elif row.row_type == "text":
-            append_text_to_el(curr_el, text_tail, row.text)
 
         else:
             raise ValueError("Row type unkown.")

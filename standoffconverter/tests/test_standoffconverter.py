@@ -7,7 +7,7 @@ import standoffconverter
 
 input_xml1 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text></TEI>'''
 
-input_xml2 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2 3 4   \n 5 6\t 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text></TEI>'''
+input_xml2 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2\n3 4   \n 5 6\t 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text></TEI>'''
 
 
 file_xml1 = os.path.join(os.path.dirname(__file__), 'xml1.xml')
@@ -60,6 +60,9 @@ class TestStandoffConverter(unittest.TestCase):
         )
         output_xml = etree.tostring(so.text_el).decode("utf-8")
         expected_out = '<text><body><p><xx resp="machine">1</xx> <xx resp="machine">2</xx> 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>'
+
+        # print(expected_out)
+        # print(output_xml)
 
         self.assertTrue(expected_out == output_xml)
 
@@ -299,9 +302,8 @@ class TestStandoffConverter(unittest.TestCase):
                 lookup.get_table_index(plain.index("7"))
             ].text == "7"
         )
-
         self.assertTrue(
-            plain == '1 2 3 4 5 6 7 9 10 11 12 13 14'
+            plain == '1 2\n3 4 5 6 7 9 10 11 12 13 14'
         )
 
     def test_view_insert_tag_text(self):

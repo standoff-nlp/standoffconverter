@@ -26,6 +26,7 @@ class PositionTable:
     """Base representation that connects the tree and the standoff world."""
     def __init__(self, df):
         self.df = df
+        self.plain = "".join(self.df[~self.df.text.isnull()].text)
 
     def __iter__(self):
         for irow, row in self.df.iterrows():
@@ -51,7 +52,7 @@ class PositionTable:
                 yield row.position, current_context, row.text
 
     def get_text(self):
-        return "".join(self.df[~self.df.text.isnull()].text)
+        return self.plain
 
     def set_el(self, el, map_):        
         for k,v in map_.items():
@@ -100,12 +101,12 @@ class PositionTable:
             self.df.row_type == "text"
         )].iloc[0]
         
-        parent = self.df[np.logical_or(
-            self.df.row_type=="open",
-            self.df.row_type=="close",
-        )].loc[:slice_.name][::-1]
+        index = slice_.name
+
+        
         cache = set()
-        for irow, row in parent.iterrows():
+        for irow in range(index, -1, -1):
+            row = self.df.loc[irow]
             if row.row_type == "close":
                 cache.add(row.el)
             if row.row_type == "open" and row.el not in cache:
@@ -118,6 +119,30 @@ class PositionTable:
         context.append(context[-1].getparent())
 
         return Context(context[::-1])
+
+        # slice_ = self.df[np.logical_and(
+        #     self.df.position == pos,
+        #     self.df.row_type == "text"
+        # )].iloc[0]
+        
+        # parent = self.df[np.logical_or(
+        #     self.df.row_type=="open",
+        #     self.df.row_type=="close",
+        # )].loc[:slice_.name][::-1]
+        # cache = set()
+        # for irow, row in parent.iterrows():
+        #     if row.row_type == "close":
+        #         cache.add(row.el)
+        #     if row.row_type == "open" and row.el not in cache:
+        #         break
+        # parent = row.el
+
+        # context = [parent]
+        # while strip_ns(context[-1].getparent().tag) != "text":
+        #     context.append(context[-1].getparent())
+        # context.append(context[-1].getparent())
+
+        # return Context(context[::-1])
             
     def collapse(self, include_empty_els=True):
 

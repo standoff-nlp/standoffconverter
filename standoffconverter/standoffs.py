@@ -53,9 +53,9 @@ class Standoff:
 5          2     text    None    NaN     2
 6          3     text    None    NaN
 7          4     text    None    NaN     3
-8         30    close       p    2.0  None
-9         30    close    body    1.0  None
-10        30    close    text    0.0  None
+8          5    close       p    2.0  None
+9          5    close    body    1.0  None
+10         5    close    text    0.0  None
 
 where the column `position` refers to the character position and `el` is a pointer to the actual etree.Element."""
         return self.table_
@@ -155,17 +155,33 @@ where the column `position` refers to the character position and `el` is a point
         returns:
             children (list) -- list of children elements ordered by depth (closest is first).
         """
-
         begin_ctx = self.table.get_context_at_pos(begin)
-        
+
+
         if depth is None:
             depth = len(begin_ctx)
 
         children = set(begin_ctx[int(depth):])
-        for pos in range(begin+1, end+1):
-            ctx = self.table.get_context_at_pos(begin)
-            children.union(set(ctx[int(depth):]))
-    
+        
+        begin_idx = self.table.df[np.logical_and(
+            self.table.df.position == begin,
+            self.table.df.row_type == "text"
+        )].iloc[0].name
+
+        children = set()
+        cache = set()
+        c_row_pos = begin
+        c_row_idx = begin_idx
+        while c_row_pos <= end:
+            c_row = self.table.df.loc[c_row_idx]
+            c_row_pos = c_row.position
+
+            if c_row.row_type == "open":
+                cache.add(c_row.el)
+            if c_row.row_type == "close" and c_row.el in cache:
+                children.add(c_row.el)
+            c_row_idx += 1
+
         return list(children)
         
     def add_standoff(self, begin, end, tag, attrib):

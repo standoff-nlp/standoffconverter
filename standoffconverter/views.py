@@ -154,8 +154,13 @@ class View:
         for i,it in enumerate(self.export):
             if it in whitespaces and begin is None:
                 begin = i
-            elif it not in whitespaces and begin is not None:
-                self.export[begin] = shrink_to
+            elif (
+                it not in whitespaces
+                and begin is not None
+            ):
+                if i-begin > 1: # only replace if it actually was multiple whitespaces
+                    self.export[begin] = shrink_to
+
                 self.export[begin+1:i] = None
                 begin = None
         return self
