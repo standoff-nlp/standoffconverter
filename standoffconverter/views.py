@@ -24,7 +24,11 @@ class ReverseLookup:
                     "position": row.position,
                     "table_index": irow,
                 })
-
+        # add element at the end to be able to wrap last char
+        self.lookup.append({
+            "position": row.position+1,
+            "table_index": irow+1
+        }) 
     def get(self,i):
         """the position/table_index information for a given character position.
         
@@ -66,6 +70,7 @@ class View:
         
         self.table = table
         self.export = dc(self.table.df.text.values)
+        
 
     def exclude_outside(self, tag_list):
         """exclude all text outside any of the tags in a list of tags.
@@ -116,7 +121,7 @@ class View:
         return self
 
 
-    def insert_tag_text(self, map_):
+    def insert_tag_text(self, tag, text, row_type="any"):
         """insert a custom character to the plain text for all occurrences of the tag.
         
         arguments:
@@ -126,9 +131,19 @@ class View:
             self (int) for chainability.
         """
         for irow, row in self.table.df.iterrows():
-            if row.el is not None and row.el.tag in map_.keys():
-                assert len(map_[row.el.tag]) == 1, "only allowed to insert single character strings."
-                self.export[irow] = map_[row.el.tag]
+            
+            # if row.el is not None and row.el.tag == tag:
+            #     import pdb; pdb.set_trace()
+            if (
+                row.el is not None 
+                and row.el.tag == tag
+                and (
+                    row_type == "any"
+                    or row_type == row.row_type
+                )
+            ):
+                assert len(text) == 1, "only allowed to insert single character strings."
+                self.export[irow] = text
 
         return self
 
@@ -149,16 +164,16 @@ class View:
             whitespaces = [" ", "\t", "\n"]
         else:
             whitespaces = custom_whitespaces
-
+        
         begin = None 
         for i,it in enumerate(self.export):
             if it in whitespaces and begin is None:
                 begin = i
             elif (
-                it not in whitespaces
+                it not in whitespaces + [None]
                 and begin is not None
             ):
-                if i-begin > 1: # only replace if it actually was multiple whitespaces
+                if sum(~self.table.df[begin:i].text.isnull()) > 1: # only replace if it actually was multiple whitespaces
                     self.export[begin] = shrink_to
 
                 self.export[begin+1:i] = None

@@ -77,16 +77,29 @@ class PositionTable:
         self.df.loc[index] = (pos, row_type, el, new_depth, None)
         self.df = self.df.sort_index().reset_index(drop=True)
 
-    def insert_empty(self, pos, el, new_depth, tail_text="open"):
+    def insert_empty(self, pos, el, new_depth, insert_index_at_pos=0):
+
+
         row_type = "empty"
         slice_ = self.df[self.df.position == pos]
         
-        if tail_text == "text":
-            chosen_ind = np.ravel(np.argwhere(~(slice_.depth<new_depth).values))[0]
-        else:
-            chosen_ind = np.ravel(np.argwhere(~(slice_.depth>new_depth).values))[0]
-        
-        index = slice_.iloc[chosen_ind].name-.5
+        ind_candidates = []
+
+        for _,row in slice_.iterrows():
+            if row.row_type == 'close' and row.depth+1 == new_depth:
+                ind_candidates.append(row.name-.5)
+            elif row.row_type == 'open' and row.depth+1 == new_depth:
+                ind_candidates.append(row.name+.5)
+            elif row.row_type == 'empty' and row.depth == new_depth:
+                ind_candidates.append(row.name+.5)
+            elif row.row_type == 'text':
+                ind_candidates.append(row.name-.5)
+
+
+        ind_candidates = sorted(list(set(ind_candidates)))
+        # import pdb; pdb.set_trace()
+        index = ind_candidates[insert_index_at_pos]
+    
         self.df.loc[index] = (pos, row_type, el, new_depth, None)
         self.df = self.df.sort_index().reset_index(drop=True)
 

@@ -9,6 +9,8 @@ input_xml1 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2 3 4 5 6 7 9 10</
 
 input_xml2 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2\n3 4   \n 5 6\t 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text></TEI>'''
 
+input_xml3 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2\n3 4 <lb/>  \n 5 6\t 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text></TEI>'''
+
 
 file_xml1 = os.path.join(os.path.dirname(__file__), 'xml1.xml')
 
@@ -214,6 +216,41 @@ class TestStandoffConverter(unittest.TestCase):
 
         self.assertTrue(expected_out == output_xml)
 
+    def test_add_empty_element_2(self):
+
+        tree = etree.fromstring(input_xml1)
+        so = standoffconverter.Standoff(tree)
+
+        so.add_inline(
+            begin=1,
+            end=1,
+            tag="lb",
+            depth=None,
+            attrib={}
+        )
+
+        so.add_inline(
+            begin=3,
+            end=3,
+            tag="lb",
+            depth=None,
+            attrib={}
+        )
+
+        so.add_inline(
+            begin=3,
+            end=4,
+            tag="s",
+            depth=None,
+            attrib={}
+        )
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
+
+        expected_out = '''<text><body><p>1<lb/> 2<s><lb/> </s>3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>'''
+
+
+        self.assertTrue(expected_out == output_xml)
+
     def test_remove_empty_element(self):
 
         tree = etree.fromstring(input_xml1)
@@ -290,7 +327,7 @@ class TestStandoffConverter(unittest.TestCase):
             plain == '2 3'
         )
 
-    def test_view_shrink_whitespace(self):
+    def test_view_shrink_whitespace_1(self):
         tree = etree.fromstring(input_xml2)
         so = standoffconverter.Standoff(tree)
         view = standoffconverter.View(so.table)
@@ -306,12 +343,23 @@ class TestStandoffConverter(unittest.TestCase):
             plain == '1 2\n3 4 5 6 7 9 10 11 12 13 14'
         )
 
+    
+    def test_view_shrink_whitespace_2(self):
+        tree = etree.fromstring(input_xml3)
+        so = standoffconverter.Standoff(tree)
+        view = standoffconverter.View(so.table)
+        view = view.shrink_whitespace()
+        plain, lookup = view.get_plain()
+        self.assertTrue(
+            plain == '1 2\n3 4 5 6 7 9 10 11 12 13 14'
+        )
+
     def test_view_insert_tag_text(self):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
         
         view = standoffconverter.View(so.table)
-        view.insert_tag_text({"lb": "\n"})
+        view.insert_tag_text("lb", "\n")
 
         plain, lookup = view.get_plain()
 
@@ -394,15 +442,16 @@ class TestStandoffConverter(unittest.TestCase):
         so = standoffconverter.Standoff(tree)
     
         so.add_span(
-            "test1",
             begin=2,
             end=7, 
-            tag="tag1",
-            depth=None
+            tag="span",
+            depth=None,
+            attrib=None,
+            id_="test1"
             )
         
         output_xml = etree.tostring(so.text_el).decode("utf-8")
-        expected_output = "<text><body><p>1 <tag1Span spanTo=\"test1\"/>2 3 4<anchor id=\"test1\"/> 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
+        expected_output = "<text><body><p>1 <span spanTo=\"test1\"/>2 3 4<anchor id=\"test1\"/> 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
 
         self.assertTrue(
             output_xml == expected_output
@@ -413,16 +462,16 @@ class TestStandoffConverter(unittest.TestCase):
         so = standoffconverter.Standoff(tree)
     
         so.add_span(
-            "test2",
             begin=2,
             end=22, 
-            tag="tag2",
-            depth=None
+            tag="span",
+            depth=None,
+            attrib=None,
+            id_="test2"
             )
         
         output_xml = etree.tostring(so.text_el).decode("utf-8")
-        expected_output = "<text><body><p>1 <tag2Span spanTo=\"test2\"/>2 3 4 5 6 7 9 10</p><p> 11<lb/> <anchor id=\"test2\"/>12 13 14</p></body></text>"
-
+        expected_output = "<text><body><p>1 <span spanTo=\"test2\"/>2 3 4 5 6 7 9 10</p><p> 11<lb/> <anchor id=\"test2\"/>12 13 14</p></body></text>"
         self.assertTrue(
             output_xml == expected_output
         )

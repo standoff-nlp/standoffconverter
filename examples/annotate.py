@@ -48,10 +48,14 @@ view = (
             "{http://www.tei-c.org/ns/1.0}abbr"
         ])
         .shrink_whitespace()
-        .insert_tag_text({
-            "{http://www.tei-c.org/ns/1.0}lb": "\n",
-            "{http://www.tei-c.org/ns/1.0}milestone":"\n"
-        })
+        .insert_tag_text(
+            "{http://www.tei-c.org/ns/1.0}lb",
+            "\n"
+        )
+        .insert_tag_text(
+            "{http://www.tei-c.org/ns/1.0}milestone",
+            "\n"
+        )
 )
 
 plain, lookup = view.get_plain()

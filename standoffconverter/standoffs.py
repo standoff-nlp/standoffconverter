@@ -202,7 +202,7 @@ where the column `position` refers to the character position and `el` is a point
                 new_el
             )
 
-    def add_inline(self, begin, end, tag, depth=None, attrib=None):
+    def add_inline(self, begin, end, tag, depth=None, attrib=None, insert_index_at_pos=0):
         """Add a standoff element to the structure. 
         The standoff element will be added to the caches and to the etree.
         
@@ -233,7 +233,7 @@ where the column `position` refers to the character position and `el` is a point
             self.table.set_el(child, {"depth":child_depth+1} )
 
         if begin == end:
-            self.table.insert_empty(begin, new_el, new_depth)
+            self.table.insert_empty(begin, new_el, new_depth, insert_index_at_pos=insert_index_at_pos)
         else:
             self.table.insert_open(begin, new_el, new_depth)
             self.table.insert_close(end, new_el, new_depth)
@@ -305,7 +305,7 @@ where the column `position` refers to the character position and `el` is a point
         )
         
 
-    def add_span(self, id_, **tag_dict):
+    def add_span(self, begin, end, tag, depth, attrib, id_=None):
         """Add a span element to the structure. 
         arguments:
         begin (int)-- beginning character position within the XML
@@ -315,22 +315,24 @@ where the column `position` refers to the character position and `el` is a point
         """
         
         #add span start
-        attrib = {"spanTo":id_}
-        if "attrib" in tag_dict:
-            attrib.update(tag_dict["attrib"])
+        attrib_ = {"spanTo":id_}
+        if attrib is not None:
+            attrib_.update(attrib)
+        attrib = attrib_
+
         self.add_inline(
-            begin=tag_dict["begin"],
-            end=tag_dict["begin"],
-            tag=tag_dict["tag"]+"Span",
-            depth=tag_dict["depth"],
+            begin=begin,
+            end=begin,
+            tag=tag,
+            depth=depth,
             attrib=attrib
             )
         
         #add anchor
         self.add_inline(
-            begin=tag_dict["end"],
-            end=tag_dict["end"],
+            begin=end,
+            end=end,
             tag="anchor",
-            depth=tag_dict["depth"],
+            depth=depth,
             attrib={"id":id_}
             )
