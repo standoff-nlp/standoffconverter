@@ -1,7 +1,6 @@
 import unittest
 import os
 from lxml import etree
-import numpy as np
 
 import standoffconverter
 

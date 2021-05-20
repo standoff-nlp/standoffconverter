@@ -1,11 +1,7 @@
-from lxml import etree
 import numpy as np
-import pandas as pd
 import json
-from contextlib import contextmanager
-from copy import deepcopy as dc
 from .converters import flat_tree2position_table, flatten_tree, standoff2tree
-from .utils import is_empty_el, strip_ns, get_order_for_traversal, create_el_from_so
+from .utils import get_order_for_traversal, create_el_from_so
         
         
 class Standoff:
