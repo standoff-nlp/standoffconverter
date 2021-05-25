@@ -28,7 +28,8 @@ input_xml = col1.text_area(
         </body>
     </text>
 </TEI>""",
-    height=400
+    height=400,
+    max_chars=300,
 )
 
 
