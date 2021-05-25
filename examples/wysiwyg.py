@@ -5,14 +5,7 @@ from standoffconverter import Standoff, View
 
 st.set_page_config(layout="wide")
 
-st.write('''# Interactive demo of the standoff converter
-This demo shows the two steps involved to get from TEI XML to plain text. This way you can use standard NLP tools on your TEI documents. 
-
-1. On the left side, you can modify the TEI document
-2. In the center, the standoff view of the document is shown, where the text and the annotations are separated
-3. On the right, a view of the document is created that (as an example) reduces the whitespace between tags and adds line breaks for `<lb/>` tags.
-''')
-
+st.write("## Interactive demo of the standoff converter")
 
 col1, col2, col3 = st.beta_columns(3)
 
@@ -37,7 +30,8 @@ input_xml = col1.text_area(
 col2.text("collapsed table")
 
 col2.code(
-    """tree = etree.fromstring(input_xml)
+    """# 1. create standoff 
+tree = etree.fromstring(input_xml)
 so = Standoff(tree)
 print(so.collapsed_table)"""
 )
@@ -58,7 +52,8 @@ view = (
 plain, lookup = view.get_plain()
 
 col3.code(
-    """view = (
+    """# 2. create view
+view = (
     View(so.table)
         .shrink_whitespace()
         .insert_tag_text(
@@ -70,3 +65,14 @@ plain, lookup = view.get_plain()
 print(plain)"""
 )
 col3.text(plain)
+
+st.write('''
+This demo shows the two steps involved to get from TEI XML to plain text. This way you can use standard NLP tools on your TEI documents. 
+
+1. On the left side, you can modify the TEI document
+2. In the center, the standoff view of the document is shown, where the text and the annotations are separated
+3. On the right, a view of the document is created that (as an example) reduces the whitespace between tags and adds line breaks for `<lb/>` tags.  
+
+[The code for this demo is available in our Github Repository](https://github.com/standoff-nlp/standoffconverter/blob/master/examples/wysiwyg.py)  
+
+''')
