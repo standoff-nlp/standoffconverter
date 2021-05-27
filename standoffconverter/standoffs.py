@@ -198,7 +198,24 @@ where the column `position` refers to the character position and `el` is a point
                 new_el
             )
 
-    def add_inline(self, begin, end, tag, depth=None, attrib=None, insert_index_at_pos=0):
+    def recreate_subtree(self, parent):
+        # extract part of the standoff table that needs to be recreated
+        # as etree
+        parent_begin, parent_end = self.table.df.loc[self.table.df.el == parent].index
+        to_update = self.table.df.iloc[parent_begin:parent_end]
+
+        # now, recreate the subtree this element is in
+        new_parent_el, old_els2new_els = standoff2tree(to_update)
+        
+        for old_el, new_el in old_els2new_els.items():
+            self.table.set_el(old_el, {"el": new_el})
+        self.__replace_el(
+            parent,
+            new_parent_el
+        )
+
+
+    def add_inline(self, begin, end, tag, depth=None, attrib=None, insert_index_at_pos=0, lazy=False):
         """Add a standoff element to the structure. 
         The standoff element will be added to the caches and to the etree.
         
@@ -233,22 +250,11 @@ where the column `position` refers to the character position and `el` is a point
         else:
             self.table.insert_open(begin, new_el, new_depth)
             self.table.insert_close(end, new_el, new_depth)
-        # extract part of the standoff table that needs to be recreated
-        # as etree
-        parent_begin, parent_end = self.table.df.loc[self.table.df.el == parent].index
-        to_update = self.table.df.iloc[parent_begin:parent_end]
 
-        # now, recreate the subtree this element is in
-        new_parent_el, old_els2new_els = standoff2tree(to_update)
-        
-        for old_el, new_el in old_els2new_els.items():
-            self.table.set_el(old_el, {"el": new_el})
-        self.__replace_el(
-            parent,
-            new_parent_el
-        )
+        if not lazy:
+            self.recreate_subtree(parent)
 
-    def remove_inline(self, del_el):
+    def remove_inline(self, del_el, lazy=False):
         """Remove a standoff element from the structure. 
         The standoff element will be removed from the caches and from the etree.
         
@@ -284,21 +290,8 @@ where the column `position` refers to the character position and `el` is a point
 
         self.table.remove_el(del_el)
 
-        # extract part of the standoff table that needs to be recreated
-        # as etree
-        parent_begin, parent_end = self.table.df.loc[self.table.df.el == parent].index
-        to_update = self.table.df.iloc[parent_begin:parent_end]
-
-        # now, recreate the subtree this element is in
-        new_parent_el, old_els2new_els = standoff2tree(to_update)
-
-        for old_el, new_el in old_els2new_els.items():
-            self.table.set_el(old_el, {"el": new_el})
-            
-        self.__replace_el(
-            parent,
-            new_parent_el
-        )
+        if not lazy:
+            self.recreate_subtree(parent)
         
 
     def add_span(self, begin, end, tag, depth, attrib, id_=None):

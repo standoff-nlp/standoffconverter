@@ -3,6 +3,7 @@ import os
 from lxml import etree
 
 import standoffconverter
+from spacy.lang.en import English
 
 input_xml1 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2 3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text></TEI>'''
 
@@ -10,8 +11,17 @@ input_xml2 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2\n3 4   \n 5 6\t 
 
 input_xml3 = b'''<TEI><teiHeader></teiHeader><text><body><p>1 2\n3 4 <lb/>  \n 5 6\t 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text></TEI>'''
 
+input_xml4 = b'''<TEI>
+<teiHeader> </teiHeader>
+<text>
+    <body>
+        <p>1 2 3 4. 5 6<lb/> 7 9 10.</p>
+        <p> 11 12 13 14</p>
+    </body>
+</text>
+</TEI>
+'''
 
-file_xml1 = os.path.join(os.path.dirname(__file__), 'xml1.xml')
 
 class TestStandoffConverter(unittest.TestCase):
 
@@ -129,9 +139,6 @@ class TestStandoffConverter(unittest.TestCase):
         output_xml = etree.tostring(so.text_el).decode("utf-8")
 
         expected_out = '<text><body><p>1 2 <xx resp="machine"/>3 4 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>'
-
-        # print(output_xml)
-        # print(expected_out)
 
         self.assertTrue(expected_out == output_xml)
 
@@ -471,6 +478,53 @@ class TestStandoffConverter(unittest.TestCase):
         
         output_xml = etree.tostring(so.text_el).decode("utf-8")
         expected_output = "<text><body><p>1 <span spanTo=\"test2\"/>2 3 4 5 6 7 9 10</p><p> 11<lb/> <anchor id=\"test2\"/>12 13 14</p></body></text>"
+        self.assertTrue(
+            output_xml == expected_output
+        )
+
+    def test_lazy_add(self):
+        tree = etree.fromstring(input_xml4)
+        so = standoffconverter.Standoff(tree)
+    
+        view = (
+            standoffconverter.View(so.table)
+                .insert_tag_text(
+                    "lb",
+                    "\n"
+                )
+                .exclude_outside("p")
+        )
+
+        plain, lookup = view.get_plain()
+
+        
+        nlp = English()
+        nlp.add_pipe('sentencizer')
+
+        for isent, sent in enumerate(nlp(plain).sents):
+
+            start_ind = lookup.get_pos(sent.start_char)
+            end_ind = lookup.get_pos(sent.end_char-1)+1
+
+            so.add_inline(
+                begin=start_ind,
+                end=end_ind,
+                tag="s",
+                depth=None,
+                attrib={'id':f'{isent}'},
+                lazy=True
+            )
+        
+        so.recreate_subtree(so.text_el.find('./body'))
+        output_xml = etree.tostring(so.tree).decode("utf-8")
+        expected_output = """<TEI>
+<teiHeader> </teiHeader>
+<text>
+    <body>
+        <p><s id="0">1 2 3 4.</s> <s id="1">5 6<lb/> 7 9 10.</s></p>
+        <p> <s id="2">11 12 13 14</s></p>
+    </body>
+</text></TEI>"""
         self.assertTrue(
             output_xml == expected_output
         )
