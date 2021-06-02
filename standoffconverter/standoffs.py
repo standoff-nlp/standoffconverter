@@ -168,7 +168,7 @@ where the column `position` refers to the character position and `el` is a point
         cache = set()
         c_row_pos = begin
         c_row_idx = begin_idx
-        while c_row_pos <= end:
+        while c_row_pos <= end and c_row_idx < self.table.df.index.stop:
             c_row = self.table.df.loc[c_row_idx]
             c_row_pos = c_row.position
 
