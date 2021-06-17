@@ -1,3 +1,4 @@
+import sys
 import pandas as pd
 from copy import deepcopy as dc
 
@@ -66,7 +67,7 @@ def append_text_to_el(el, text_tail, buf):
     else:
         el.tail = buf if el.tail is None else el.tail + buf
 
-
+# @profile
 def standoff2tree(table):
     """Convert a position table to an etree."""
     curr_context = Context()
@@ -76,54 +77,58 @@ def standoff2tree(table):
     text_tail = None
     root = None
 
-    open_type_str = "open"
-    close_type_str = "close"
-    empty_type_str = "empty"
-    text_type_str = "text"
+    texts = table['text'].array
+    els = table['el'].array
 
-    text_buffer = None
+    open_types = (table['row_type'].array == 'open')
+    close_types = (table['row_type'].array == 'close')
+    empty_types = (table['row_type'].array == 'empty')
+    text_types = (table['row_type'].array == 'text')
+
+    text_buffer_start = None
 
     old2new = {}
 
-    for row in table.itertuples():
+    for irow, text_type in enumerate(text_types):
 
-        row_type = row.row_type
-        row_el = row.el
-        row_text = row.text
-        
+        if text_type:
+            if text_buffer_start is None:
+                text_buffer_start = irow
+            continue
+
+        row_el = els[irow]
         if row_el is not None:
             if row_el not in old2new:
                 prev_el = curr_el
                 curr_el = create_el_from_so(dc(row_el.tag), dc(row_el.attrib))
                 old2new[row_el] = curr_el
 
-        if row_type == text_type_str:
-            text_buffer = row_text if text_buffer is None else text_buffer + row_text
             
-        elif row_type == open_type_str:
+        if open_types[irow]:
             
-            if text_buffer is not None and prev_el is not None:
-                append_text_to_el(prev_el, text_tail, text_buffer)
-                text_buffer = None
+            if text_buffer_start is not None and prev_el is not None:
+                text_arr = texts[text_buffer_start:irow]
+                append_text_to_el(prev_el, text_tail, "".join(text_arr))
+                text_buffer_start = None
 
             curr_context.append(curr_el)
             if len(curr_context) > 1:
                 curr_context[-2].append(curr_context[-1])
             text_tail = "text"
 
-        elif row_type == close_type_str:
-            if text_buffer is not None and prev_el is not None:
-                append_text_to_el(curr_el, text_tail, text_buffer)
-                text_buffer = None
+        elif close_types[irow]:
+            if text_buffer_start is not None and prev_el is not None:
+                append_text_to_el(curr_el, text_tail, "".join(texts[text_buffer_start:irow]))
+                text_buffer_start = None
 
             curr_el = curr_context[-1]
             curr_context = Context(curr_context[:-1])
             text_tail = "tail"
             
-        elif row_type == empty_type_str:
-            if text_buffer is not None and prev_el is not None:
-                append_text_to_el(prev_el, text_tail, text_buffer)
-                text_buffer = None
+        elif empty_types[irow]:
+            if text_buffer_start is not None and prev_el is not None:
+                append_text_to_el(prev_el, text_tail, "".join(texts[text_buffer_start:irow]))
+                text_buffer_start = None
             if len(curr_context) > 0:
                 curr_context[-1].append(curr_el)
             text_tail = "tail"
@@ -135,7 +140,7 @@ def standoff2tree(table):
         if root is None:
             root = curr_el
 
-    if text_buffer is not None:
-        append_text_to_el(curr_el, text_tail, text_buffer)
+    if text_buffer_start is not None:
+        append_text_to_el(curr_el, text_tail, ''.join(texts[text_buffer_start:]))
 
     return root, old2new

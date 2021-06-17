@@ -7,10 +7,10 @@ from .utils import strip_ns, is_empty_el
 class Context(list):
     """list of etree.Elements that define the context of a position."""
     def __str__(self):
-        return ">".join(map(lambda x: x.tag, self))
-
-    def strip_ns(self):
         return ">".join(map(lambda ctx: strip_ns(ctx.tag), self))
+        # return ">".join(map(lambda x: x.tag, self))
+
+    # def strip_ns(self):
 
     def __eq__(self, other):
         if len(self) != len(other):
@@ -173,7 +173,7 @@ class PositionTable:
 
             if new_context != c_context and txt is not None:
                 collapsed_table.append({
-                    "context": c_context.strip_ns(),
+                    "context": c_context,
                     "text": text_buffer
                 })
                 text_buffer = ""
@@ -185,13 +185,13 @@ class PositionTable:
             if is_empty_el(el):
                 if len(text_buffer)>0:
                     collapsed_table.append({
-                        "context": c_context.strip_ns(),
+                        "context": c_context,
                         "text": text_buffer
                     })
                     text_buffer = ""
 
                 collapsed_table.append({
-                    "context": new_context.strip_ns(),
+                    "context": new_context,
                     "text": ""
                 })
 
@@ -200,7 +200,7 @@ class PositionTable:
         # include trailing text
         if text_buffer != "":
             collapsed_table.append({
-                "context": c_context.strip_ns(),
+                "context": c_context,
                 "text": text_buffer
             })
         
