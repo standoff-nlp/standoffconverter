@@ -2,7 +2,7 @@
 
 ## Interactive Demo
 An interactive demo of the basic functionality of the project can be found here:  
-[so.davidlassner.com](https://so.davidlassner.com/)
+[so.davidlassner.com](https://so.davidlassner.com/)  
 The code for this demo can be found at [examples/wysiwyg.py](https://github.com/standoff-nlp/standoffconverter/blob/master/examples/wysiwyg.py)
 
 ## Simple use case
