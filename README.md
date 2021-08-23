@@ -1,5 +1,9 @@
 # standoffconverter
 
+## Interactive Demo
+An interactive demo of the basic functionality of the project can be found here:  
+https://so.davidlassner.com/
+
 ## Simple use case
 I intended this package to be used in the following situation:
 Given a collection of TEI files, I would like to add new annotations (for example with an ML method). The workflow would include the following steps:
