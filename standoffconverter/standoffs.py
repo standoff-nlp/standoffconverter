@@ -153,16 +153,25 @@ where the column `position` refers to the character position and `el` is a point
         """
         begin_ctx = self.table.get_context_at_pos(begin)
 
-
         if depth is None:
             depth = len(begin_ctx)
 
         children = set(begin_ctx[int(depth):])
         
-        begin_idx = self.table.df[np.logical_and(
-            self.table.df.position == begin,
-            self.table.df.row_type == "text"
-        )].iloc[0].name
+        if not (self.table.df.position==begin).any():
+            # begin not in self.table.df.position
+            slice_ = self.table.df[np.logical_and(
+                self.table.df.position < begin,
+                self.table.df.row_type == "text"
+            )]
+
+            begin_idx = slice_.iloc[-1].name
+
+        else:
+            begin_idx = self.table.df[np.logical_and(
+                self.table.df.position == begin,
+                self.table.df.row_type == "text"
+            )].iloc[0].name
 
         children = set()
         cache = set()
@@ -215,7 +224,7 @@ where the column `position` refers to the character position and `el` is a point
         )
 
 
-    def add_inline(self, begin, end, tag, depth=None, attrib=None, insert_index_at_pos=0, lazy=False):
+    def add_inline(self, begin, end, tag, depth=None, attrib=None, insert_index_at_pos=0):
         """Add a standoff element to the structure. 
         The standoff element will be added to the caches and to the etree.
         
@@ -251,10 +260,9 @@ where the column `position` refers to the character position and `el` is a point
             self.table.insert_open(begin, new_el, new_depth)
             self.table.insert_close(end, new_el, new_depth)
 
-        if not lazy:
-            self.recreate_subtree(parent)
+        self.recreate_subtree(parent)
 
-    def remove_inline(self, del_el, lazy=False):
+    def remove_inline(self, del_el):
         """Remove a standoff element from the structure. 
         The standoff element will be removed from the caches and from the etree.
         
@@ -290,8 +298,7 @@ where the column `position` refers to the character position and `el` is a point
 
         self.table.remove_el(del_el)
 
-        if not lazy:
-            self.recreate_subtree(parent)
+        self.recreate_subtree(parent)
         
 
     def add_span(self, begin, end, tag, depth, attrib, id_=None):

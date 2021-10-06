@@ -61,7 +61,7 @@ class TestStandoffConverter(unittest.TestCase):
             depth=None,
             attrib={"resp":"machine"}
         )
-
+        # import pdb; pdb.set_trace()
         so.add_inline(
             begin=2,
             end=3,
@@ -304,14 +304,16 @@ class TestStandoffConverter(unittest.TestCase):
             attrib={"resp":"machine"}
         )
         view = standoffconverter.View(so.table)
-        
         view = view.exclude_inside(["xx"])
         plain, lookup = view.get_plain()
 
+        plain_index = plain.index("5")
+        table_index = lookup.get_table_index(plain_index)
+        table_pos = lookup.get_pos(plain_index)
         self.assertTrue(
             so.table.df.iloc[
-                lookup.get_table_index(plain.index("5"))
-            ].text == "5"
+                table_index
+            ].text[table_pos] == "5"
         )
 
     def test_view_exclude_2(self):
@@ -478,53 +480,6 @@ class TestStandoffConverter(unittest.TestCase):
         
         output_xml = etree.tostring(so.text_el).decode("utf-8")
         expected_output = "<text><body><p>1 <span spanTo=\"test2\"/>2 3 4 5 6 7 9 10</p><p> 11<lb/> <anchor id=\"test2\"/>12 13 14</p></body></text>"
-        self.assertTrue(
-            output_xml == expected_output
-        )
-
-    def test_lazy_add(self):
-        tree = etree.fromstring(input_xml4)
-        so = standoffconverter.Standoff(tree)
-    
-        view = (
-            standoffconverter.View(so.table)
-                .insert_tag_text(
-                    "lb",
-                    "\n"
-                )
-                .exclude_outside("p")
-        )
-
-        plain, lookup = view.get_plain()
-
-        
-        nlp = English()
-        nlp.add_pipe('sentencizer')
-
-        for isent, sent in enumerate(nlp(plain).sents):
-
-            start_ind = lookup.get_pos(sent.start_char)
-            end_ind = lookup.get_pos(sent.end_char-1)+1
-
-            so.add_inline(
-                begin=start_ind,
-                end=end_ind,
-                tag="s",
-                depth=None,
-                attrib={'id':f'{isent}'},
-                lazy=True
-            )
-        
-        so.recreate_subtree(so.text_el.find('./body'))
-        output_xml = etree.tostring(so.tree).decode("utf-8")
-        expected_output = """<TEI>
-<teiHeader> </teiHeader>
-<text>
-    <body>
-        <p><s id="0">1 2 3 4.</s> <s id="1">5 6<lb/> 7 9 10.</s></p>
-        <p> <s id="2">11 12 13 14</s></p>
-    </body>
-</text></TEI>"""
         self.assertTrue(
             output_xml == expected_output
         )

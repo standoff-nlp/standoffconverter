@@ -61,8 +61,33 @@ class PositionTable:
             for index in indices:
                 self.df.at[index, k] = v
 
+    def __split_string(self, pos):
+
+        slice_ = self.df[np.logical_and(
+            self.df.position < pos,
+            self.df.row_type == "text"
+        )]
+
+        old_row = slice_.iloc[-1]
+        base_position = old_row.position
+        split_index = pos - base_position
+
+        new_text1 = old_row.text[:split_index]
+        new_text2 = old_row.text[split_index:]
+
+        new_row1 = (base_position, "text", None, old_row.depth, new_text1)
+        new_row2 = (pos, "text", None, old_row.depth, new_text2)
+
+        index = old_row.name
+        self.df.loc[index] = new_row1
+        self.df.loc[index+.5] = new_row2
+        self.df = self.df.sort_index().reset_index(drop=True)
+
     def insert_open(self, pos, el, new_depth):
         row_type = "open"
+        if not (self.df.position==pos).any():
+            # pos not in self.df.position
+            self.__split_string(pos)
         slice_ = self.df[self.df.position == pos]
         after_pos = np.ravel(np.argwhere(~(slice_.depth<new_depth).values))[0]
         index = slice_.iloc[after_pos].name-.5
@@ -71,6 +96,9 @@ class PositionTable:
 
     def insert_close(self, pos, el, new_depth):
         row_type = "close"
+        if not (self.df.position==pos).any():
+            # pos not in self.df.position
+            self.__split_string(pos)
         slice_ = self.df[self.df.position == pos]
         after_pos = np.ravel(np.argwhere(~(slice_.depth>new_depth).values))[0]
         index = slice_.iloc[after_pos].name-.5
@@ -81,6 +109,11 @@ class PositionTable:
 
 
         row_type = "empty"
+
+        if not (self.df.position==pos).any():
+            # pos not in self.df.position
+            self.__split_string(pos)
+
         slice_ = self.df[self.df.position == pos]
         
         ind_candidates = []
@@ -104,19 +137,51 @@ class PositionTable:
         self.df = self.df.sort_index().reset_index(drop=True)
 
     def remove_el(self, el):
+    
         index = self.df[self.df.el == el].index
         self.df.drop(index, inplace=True)
+    
+        for idx_entry in index:
+            
+            old_row1 = self.df.loc[idx_entry-1]
+            old_row2 = self.df.loc[idx_entry+1]
+
+            if (old_row1.row_type=='text'
+                and old_row2.row_type=='text'):
+                # join string rows
+                new_row = (
+                    old_row1.position,
+                    "text",
+                    None,
+                    old_row1.depth,
+                    old_row1.text + old_row2.text
+                )
+                self.df.drop(idx_entry+1, inplace=True)
+                self.df.loc[idx_entry-1] = new_row
+
+                self.df = self.df.reset_index(drop=True)
+
         self.df = self.df.reset_index(drop=True)
 
     def get_context_at_pos(self, pos):
-        slice_ = self.df[np.logical_and(
-            self.df.position == pos,
-            self.df.row_type == "text"
-        )].iloc[0]
+
+        if not (self.df.position==pos).any():
+            # pos not in self.df.position
+            slice_ = self.df[np.logical_and(
+                self.df.position < pos,
+                self.df.row_type == "text"
+            )]
+
+            slice_ = slice_.iloc[-1]
+
+        else:
+            slice_ = self.df[np.logical_and(
+                self.df.position == pos,
+                self.df.row_type == "text"
+            )].iloc[0]
         
         index = slice_.name
 
-        
         cache = set()
         for irow in range(index, -1, -1):
             row = self.df.loc[irow]

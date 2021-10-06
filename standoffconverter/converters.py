@@ -47,15 +47,15 @@ def flat_tree2position_table(flat_tree):
             "text": None,
         })
         if text is not None:
-            for char in text:
-                position_table.append({
-                    "position": c_position,
-                    "row_type": "text",
-                    "el": None,
-                    "depth": None,
-                    "text": char,
-                })
-                c_position += 1
+            # for char in text:
+            position_table.append({
+                "position": c_position,
+                "row_type": "text",
+                "el": None,
+                "depth": None,
+                "text": text,
+            })
+            c_position += len(text)
 
     return PositionTable(pd.DataFrame(position_table))
 

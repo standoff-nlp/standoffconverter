@@ -63,14 +63,35 @@ class ReverseLookup:
         return self.lookup[i]["position"]
 
 
+class Char:
+
+    def __init__(self, char, table_position, table_index):
+
+        self.char = char
+        self.table_position = table_position
+        self.table_index = table_index
+
+
 class View:
     """Prepare the plain text of a Standoff table for processing with NLP libraries without losing the information of where the characters came from within the Standoff table. Typical use cases are removal of <notes> or insertion of newlines for encoded newlines (`<lb>`).
     """ 
     def __init__(self, table):
         
         self.table = table
-        self.export = dc(self.table.df.text.values)
-        
+        self.export = []
+        for irow, row in self.table.df.iterrows():
+            if row.row_type == "text":
+                for ichar, char in enumerate(row.text):
+                    self.export.append(Char(
+                        char, row.position + ichar, irow
+                    ))
+            else:
+                self.export.append(Char(
+                    "", row.position, irow
+                ))
+
+        self.export = np.array(self.export)
+
 
     def exclude_outside(self, tag_list):
         """exclude all text outside any of the tags in a list of tags.
@@ -82,7 +103,7 @@ class View:
             self (int) for chainability.
         """
         for tag in tag_list:
-            mask = np.zeros(len(self.table.df), dtype=bool)
+            mask = np.zeros(len(self.export), dtype=bool)
             return self.__exclude_generic(tag, mask, True)
             
         return self
@@ -97,7 +118,7 @@ class View:
             self (int) for chainability.
         """
         for tag in tag_list:
-            mask = np.ones(len(self.table.df), dtype=bool)
+            mask = np.ones(len(self.export), dtype=bool)
             return self.__exclude_generic(tag, mask, False)
             
         return self
@@ -117,7 +138,8 @@ class View:
                 if row.el in open_stack:
                     mask[open_stack[row.el]: irow] = application
 
-        self.export[~mask] = None
+        for char in self.export[~mask]:
+            char.char = None
         return self
 
 
@@ -189,5 +211,5 @@ class View:
             lookup (ReverseLookup)-- the matching lookup object. 
         """
         lookup = ReverseLookup(self.table, self.export)
-        plain = "".join(it for it in self.export if it is not None)
+        plain = "".join(it.char for it in self.export if it.char is not None)
         return plain, lookup
