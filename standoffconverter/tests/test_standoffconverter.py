@@ -303,13 +303,16 @@ class TestStandoffConverter(unittest.TestCase):
             depth=None,
             attrib={"resp":"machine"}
         )
-        view = standoffconverter.View(so.table)
+        view = standoffconverter.View(so)
         view = view.exclude_inside(["xx"])
-        plain, lookup = view.get_plain()
+        plain = view.get_plain()
 
         plain_index = plain.index("5")
-        table_index = lookup.get_table_index(plain_index)
-        table_pos = lookup.get_pos(plain_index)
+        table_index = view.get_table_index(plain_index)
+        table_pos = view.get_table_pos(plain_index)
+        row = so.table.df.iloc[table_index]
+        table_pos -= row.position
+
         self.assertTrue(
             so.table.df.iloc[
                 table_index
@@ -326,11 +329,12 @@ class TestStandoffConverter(unittest.TestCase):
             depth=None,
             attrib={"resp":"machine"}
         )
-        view = standoffconverter.View(so.table)
+        view = standoffconverter.View(so)
         
-        view = view.exclude_outside(["xx"])
-        plain, lookup = view.get_plain()
-         
+        view = view.exclude_outside("xx")
+        
+        plain = view.get_plain()
+        
         self.assertTrue(
             plain == '2 3'
         )
@@ -338,15 +342,22 @@ class TestStandoffConverter(unittest.TestCase):
     def test_view_shrink_whitespace_1(self):
         tree = etree.fromstring(input_xml2)
         so = standoffconverter.Standoff(tree)
-        view = standoffconverter.View(so.table)
+        view = standoffconverter.View(so)
         view = view.shrink_whitespace()
-        plain, lookup = view.get_plain()
+        plain = view.get_plain()
+
+        plain_index = plain.index("7")
+        table_index = view.get_table_index(plain_index)
+        table_pos = view.get_table_pos(plain_index)
+        row = so.table.df.iloc[table_index]
+        table_pos -= row.position
 
         self.assertTrue(
             so.table.df.iloc[
-                lookup.get_table_index(plain.index("7"))
-            ].text == "7"
+                table_index
+            ].text[table_pos] == "7"
         )
+
         self.assertTrue(
             plain == '1 2\n3 4 5 6 7 9 10 11 12 13 14'
         )
@@ -355,9 +366,11 @@ class TestStandoffConverter(unittest.TestCase):
     def test_view_shrink_whitespace_2(self):
         tree = etree.fromstring(input_xml3)
         so = standoffconverter.Standoff(tree)
-        view = standoffconverter.View(so.table)
+
+        view = standoffconverter.View(so)
         view = view.shrink_whitespace()
-        plain, lookup = view.get_plain()
+        plain = view.get_plain()
+
         self.assertTrue(
             plain == '1 2\n3 4 5 6 7 9 10 11 12 13 14'
         )
@@ -366,15 +379,21 @@ class TestStandoffConverter(unittest.TestCase):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
         
-        view = standoffconverter.View(so.table)
+        view = standoffconverter.View(so)
         view.insert_tag_text("lb", "\n")
 
-        plain, lookup = view.get_plain()
+        plain = view.get_plain()
 
+        plain_index = plain.index("12")
+
+        table_index = view.get_table_index(plain_index)
+        table_pos = view.get_table_pos(plain_index)
+        row = so.table.df.iloc[
+            table_index
+        ]
+        table_pos -= row.position
         self.assertTrue(
-            so.table.df.iloc[
-                lookup.get_table_index(plain.index("12"))
-            ].text == "1"
+            row.text[table_pos] == "1"
         )
 
         self.assertTrue(
