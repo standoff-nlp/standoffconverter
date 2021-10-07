@@ -1,3 +1,3 @@
 from .standoffs import Standoff
-from .views import View, ReverseLookup
+from .views import View
 

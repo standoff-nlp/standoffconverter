@@ -19,18 +19,16 @@ API
 
 .. autoclass:: standoffconverter.View
 
+    
     .. automethod:: get_plain
+    .. automethod:: get_table_pos
+    .. automethod:: get_table_index
+    .. automethod:: exclude_outside
+    .. automethod:: exclude_inside
     .. automethod:: insert_tag_text
     .. automethod:: shrink_whitespace
-    .. automethod:: exclude
     
     .. automethod:: __init__
-
-.. autoclass:: standoffconverter.ReverseLookup
-
-    .. automethod:: get
-    .. automethod:: get_table_index
-    .. automethod:: get_pos
     
 
 
