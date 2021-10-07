@@ -1,5 +1,10 @@
 # standoffconverter
 
+## Interactive Demo
+An interactive demo of the basic functionality of the project can be found here:  
+[so.davidlassner.com](https://so.davidlassner.com/)  
+The code for this demo can be found at [examples/wysiwyg.py](https://github.com/standoff-nlp/standoffconverter/blob/master/examples/wysiwyg.py)
+
 ## Simple use case
 I intended this package to be used in the following situation:
 Given a collection of TEI files, I would like to add new annotations (for example with an ML method). The workflow would include the following steps:
