@@ -334,7 +334,6 @@ class TestStandoffConverter(unittest.TestCase):
         view = view.exclude_outside("xx")
         
         plain = view.get_plain()
-        
         self.assertTrue(
             plain == '2 3'
         )

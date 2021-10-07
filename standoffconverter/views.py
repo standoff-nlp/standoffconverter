@@ -73,9 +73,8 @@ class View:
         return self.view.iloc[index].table_index
 
     def iter_exclude(self, tag):
-        
         open_stack = set()
-        for _, row in self.view.iterrows():
+        for irow, row in self.view.iterrows():
             if (row.el is not None 
                 and row.el.tag == tag
                 and row.row_type == "open"):
@@ -86,7 +85,7 @@ class View:
                 open_stack.remove(row.el)
 
             inside = len(open_stack) > 0
-            yield inside, row
+            yield inside, irow, row
                
     def exclude_outside(self, tag):
         """exclude all text outside any of the tags in a list of tags.
@@ -97,9 +96,11 @@ class View:
         returns:
             self (int) for chainability.
         """
-        for inside, row in self.iter_exclude(tag):
+        mask = np.zeros(len(self.view), dtype=bool)
+        for inside, irow, _ in self.iter_exclude(tag):
             if not inside:
-                self.view.loc[row.name, 'char'] = ""
+                mask[irow] = True
+        self.view.loc[mask, 'char'] = ""
         return self
 
     def exclude_inside(self, tag):
@@ -111,9 +112,11 @@ class View:
         returns:
             self (int) for chainability.
         """
-        for inside, row in self.iter_exclude(tag):
+        mask = np.zeros(len(self.view), dtype=bool)
+        for inside, irow, _ in self.iter_exclude(tag):
             if inside:
-                self.view.loc[row.name, 'char'] = ""
+                mask[irow] = True
+        self.view.loc[mask, 'char'] = ""
         return self
 
     def insert_tag_text(self, tag, text):

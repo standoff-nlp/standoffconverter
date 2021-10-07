@@ -54,7 +54,7 @@ col2.write(so.collapsed_table)
 col3.write("2. Plain text view")
 
 view = (
-    View(so.table)
+    View(so)
         .insert_tag_text(
             "lb",
             "\n"
@@ -62,13 +62,13 @@ view = (
         .exclude_outside("p")
 )
 
-plain, lookup = view.get_plain()
+plain = view.get_plain()
 
 
 col3.code(
     """# 2. create view
 view = (
-    View(so.table)
+    View(so)
         .insert_tag_text(
             "lb",
             "\\n"
@@ -76,7 +76,7 @@ view = (
         .exclude_outside("p")
 )
 
-plain, lookup = view.get_plain()
+plain = view.get_plain()
 print(plain)"""
 )
 col3.text(plain)
@@ -117,8 +117,8 @@ col2.code(
 # and add annotations to the tree
 for isent, sent in enumerate(sentences):
 
-    start_ind = lookup.get_pos(sent.start_char)
-    end_ind = lookup.get_pos(sent.end_char-1)+1
+    start_ind = view.get_table_pos(sent.start_char)
+    end_ind = view.get_table_pos(sent.end_char-1)+1
 
     so.add_inline(
         begin=start_ind,
@@ -131,8 +131,8 @@ for isent, sent in enumerate(sentences):
 """)
 for isent, sent in enumerate(sentences):
 
-    start_ind = lookup.get_pos(sent.start_char)
-    end_ind = lookup.get_pos(sent.end_char-1)+1
+    start_ind = view.get_table_pos(sent.start_char)
+    end_ind = view.get_table_pos(sent.end_char-1)+1
 
     try:
         so.add_inline(

@@ -42,11 +42,9 @@ st.markdown(view_md_collapsed_table(so.collapsed_table), unsafe_allow_html=True)
 st.write("# The Filtered Text")
 
 view = (
-    View(so.table)
-        .exclude([
-            "{http://www.tei-c.org/ns/1.0}note",
-            "{http://www.tei-c.org/ns/1.0}abbr"
-        ])
+    View(so)
+        .exclude_inside("{http://www.tei-c.org/ns/1.0}note")
+        .exclude_inside("{http://www.tei-c.org/ns/1.0}abbr")
         .shrink_whitespace()
         .insert_tag_text(
             "{http://www.tei-c.org/ns/1.0}lb",
@@ -58,7 +56,7 @@ view = (
         )
 )
 
-plain, lookup = view.get_plain()
+plain = view.get_plain()
 st.text(plain)
 
 st.write("# Spacy NER solution")
@@ -80,8 +78,8 @@ st.write("# Embed solution into TEI")
 for ent in doc.ents:
     if ent.label_ in ["PER"]:
         try:
-            start_ind = lookup.get_pos(ent.start_char)
-            end_ind = lookup.get_pos(ent.end_char+1)
+            start_ind = view.get_table_pos(ent.start_char)
+            end_ind = view.get_table_pos(ent.end_char+1)
 
             so.add_inline(
                 begin=start_ind,
@@ -92,12 +90,12 @@ for ent in doc.ents:
             )
         except ValueError:
             so.add_span(
-                str(hash(ent)),
                 begin=start_ind,
                 end=end_ind,
                 tag="spacyPersName",
                 depth=None,
-                attrib={"resp": model_identifier}
+                attrib={"resp": model_identifier},
+                id_=str(hash(ent)),
             )
 
 st.markdown(view_md_collapsed_table(so.collapsed_table), unsafe_allow_html=True)
