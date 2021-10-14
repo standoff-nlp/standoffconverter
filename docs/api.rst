@@ -18,7 +18,6 @@ API
     .. automethod:: __init__
 
 .. autoclass:: standoffconverter.View
-
     
     .. automethod:: get_plain
     .. automethod:: get_table_pos

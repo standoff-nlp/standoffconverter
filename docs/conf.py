@@ -18,7 +18,7 @@
 # -- Project information -----------------------------------------------------
 
 project = 'standoffconverter'
-copyright = '2019, David Lassner'
+copyright = '2021, David Lassner'
 author = 'David Lassner'
 
 # The full version, including alpha/beta/rc tags
