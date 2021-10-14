@@ -24,6 +24,7 @@ API
     .. automethod:: get_table_index
     .. automethod:: exclude_outside
     .. automethod:: exclude_inside
+    .. automethod:: include_inside
     .. automethod:: insert_tag_text
     .. automethod:: shrink_whitespace
     .. automethod:: remove_comments
