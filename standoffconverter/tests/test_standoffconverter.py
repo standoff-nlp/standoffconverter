@@ -22,6 +22,8 @@ input_xml4 = b'''<TEI>
 </TEI>
 '''
 
+input_xml5 = b'''<TEI><teiHeader></teiHeader><text><!-- comment 1 --><body><p> 11 12 13 14</p></body><!-- comment 2 --></text></TEI>'''
+
 
 class TestStandoffConverter(unittest.TestCase):
 
@@ -61,7 +63,7 @@ class TestStandoffConverter(unittest.TestCase):
             depth=None,
             attrib={"resp":"machine"}
         )
-        # import pdb; pdb.set_trace()
+
         so.add_inline(
             begin=2,
             end=3,
@@ -426,7 +428,7 @@ class TestStandoffConverter(unittest.TestCase):
             )
 
             to_remove = [it['el'] for it in so.standoffs if it["el"].tag =='vv'][0]
-            # import pdb; pdb.set_trace()
+
             so.remove_inline(to_remove)
 
         output_xml = etree.tostring(so.text_el).decode("utf-8")
@@ -494,13 +496,41 @@ class TestStandoffConverter(unittest.TestCase):
             depth=None,
             attrib=None,
             id_="test2"
-            )
+        )
         
         output_xml = etree.tostring(so.text_el).decode("utf-8")
         expected_output = "<text><body><p>1 <span spanTo=\"test2\"/>2 3 4 5 6 7 9 10</p><p> 11<lb/> <anchor id=\"test2\"/>12 13 14</p></body></text>"
         self.assertTrue(
             output_xml == expected_output
         )
+
+    def test_remove_comments(self):
+        tree = etree.fromstring(input_xml5)
+        so = standoffconverter.Standoff(tree)
+        view = standoffconverter.View(so)
+        view = view.remove_comments()
+
+        plain = view.get_plain()
+        
+        self.assertTrue(plain == ' 11 12 13 14')
+        
+
+    def test_retain_comments(self):
+        from standoffconverter.converters import standoff2tree
+
+        tree = etree.fromstring(input_xml5)
+        so = standoffconverter.Standoff(tree)
+
+        output_el, _ = standoff2tree(so.table.df)
+        
+        output_xml = etree.tostring(output_el).decode("utf-8")
+
+        expected_output = "<text><!-- comment 1 --><body><p> 11 12 13 14</p></body><!-- comment 2 --></text>"
+        self.assertTrue(
+            output_xml == expected_output
+        )
+        
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -27,6 +27,7 @@ API
     .. automethod:: exclude_inside
     .. automethod:: insert_tag_text
     .. automethod:: shrink_whitespace
+    .. automethod:: remove_comments
     
     .. automethod:: __init__
     

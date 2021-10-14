@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 
 from lxml import etree
+from tqdm import tqdm
 
 
 class View:
@@ -13,12 +14,15 @@ class View:
 
         self.table = so.table.df
         self.view = self.__create_view()
+        self.begins = self.table.row_type=='open'
+        self.ends = self.table.row_type=='close'
+
 
     def __create_view(self):
 
         result = []
 
-        for irow, row in self.table.iterrows():
+        for irow, row in tqdm(self.table.iterrows(), desc="create view", total=len(self.table)):
             if row.text is not None:
                 for ichar, char in enumerate(row.text):
                     result.append({
@@ -72,23 +76,28 @@ class View:
         index = (self.view.char.apply(len).cumsum()-1==plain_text_index).argmax()
         return self.view.iloc[index].table_index
 
-    def iter_exclude(self, tag):
-        open_stack = set()
-        for irow, row in self.view.iterrows():
-            if (row.el is not None 
-                and row.el.tag == tag
-                and row.row_type == "open"):
-                open_stack.add(row.el)
-            elif (row.el is not None 
-                and row.el.tag == tag
-                and row.row_type == "close"):
-                open_stack.remove(row.el)
+    def iter_indices_inside(self, tag_or_callable=None):
 
-            inside = len(open_stack) > 0
-            yield inside, irow, row
+        if callable(tag_or_callable):
+            element_mask = self.table.el.apply(tag_or_callable)
+        else:
+            element_mask = self.table.el.apply(lambda x: x.tag == tag_or_callable if isinstance(x, etree._Element) else False)
+            
+        begins = self.table[np.logical_and(
+            element_mask,
+            self.begins
+        )]
+
+        ends = self.table[np.logical_and(
+            element_mask,
+            self.ends
+        )]
+
+        for begin, end in tqdm(zip(begins.index, ends.index), total=len(begins)):
+            yield begin, end
                
     def exclude_outside(self, tag):
-        """exclude all text outside any of the tags in a list of tags.
+        """exclude all text outside any of the tag.
         
         arguments:
         tag -- for example `'note'` or `"{http://www.tei-c.org/ns/1.0}abbr"`
@@ -96,15 +105,14 @@ class View:
         returns:
             self (int) for chainability.
         """
-        mask = np.zeros(len(self.view), dtype=bool)
-        for inside, irow, _ in self.iter_exclude(tag):
-            if not inside:
-                mask[irow] = True
+        mask = np.ones(len(self.view), dtype=bool)
+        for begin, end in self.iter_indices_inside(tag):
+            mask[self.view.table_index.isin(np.arange(begin,end))] = False
         self.view.loc[mask, 'char'] = ""
         return self
 
     def exclude_inside(self, tag):
-        """exclude all text within any of the tags in a list of tags.
+        """exclude all text within any of the tag.
         
         arguments:
         tag -- for example `'note'` or `"{http://www.tei-c.org/ns/1.0}abbr"`
@@ -113,11 +121,11 @@ class View:
             self (int) for chainability.
         """
         mask = np.zeros(len(self.view), dtype=bool)
-        for inside, irow, _ in self.iter_exclude(tag):
-            if inside:
-                mask[irow] = True
+        for begin, end in self.iter_indices_inside(tag):
+            mask[self.view.table_index.isin(np.arange(begin,end))] = True
         self.view.loc[mask, 'char'] = ""
         return self
+
 
     def insert_tag_text(self, tag, text):
         """insert a custom character to the plain text for all occurrences of the tag.
@@ -130,7 +138,7 @@ class View:
             self (int) for chainability.
         """
         
-        for _, row in self.view.iterrows():
+        for _, row in tqdm(self.view.iterrows(), desc='insert tag text', total=len(self.view)):
             if row.el is not None and row.el.tag == tag:
                 self.view.loc[row.name, 'char'] = text
         
@@ -154,7 +162,7 @@ class View:
             whitespaces = custom_whitespaces
         
         begin = None 
-        for i,row in self.view.iterrows():
+        for i,row in tqdm(self.view.iterrows(), desc="shrink whitespace", total=len(self.view)):
             if row.char in whitespaces and begin is None:
                 begin = i
             elif (
@@ -166,4 +174,26 @@ class View:
                     self.view.loc[begin+1:i-1, 'char'] = ""
                 begin = None
 
+        return self
+
+    def remove_comments(self):
+        """Remove comments (something like "<!-- ... -->") from plain text view.
+        
+        arguments:
+
+        returns:
+            self (int) for chainability.
+        """
+        for begin, end in self.iter_indices_inside(
+            lambda x: isinstance(x, etree._Comment)
+        ):
+
+            self.view.loc[
+                np.logical_and(
+                    self.view.table_index.isin(np.arange(begin,end)),
+                    self.view.row_type=='text'
+                ),
+                "char"
+            ] = ""
+        
         return self

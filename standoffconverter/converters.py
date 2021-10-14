@@ -1,6 +1,7 @@
 import sys
 import pandas as pd
 from copy import deepcopy as dc
+from lxml import etree
 
 from .utils import is_empty_el, strip_ns, create_el_from_so
 from .base import PositionTable, Context
@@ -100,7 +101,10 @@ def standoff2tree(table):
         if row_el is not None:
             if row_el not in old2new:
                 prev_el = curr_el
-                curr_el = create_el_from_so(dc(row_el.tag), dc(row_el.attrib))
+                if isinstance(row_el, etree._Comment):
+                    curr_el = etree.Comment()
+                else:
+                    curr_el = create_el_from_so(dc(row_el.tag), dc(row_el.attrib))
                 old2new[row_el] = curr_el
 
             
