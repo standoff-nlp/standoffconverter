@@ -30,7 +30,8 @@ class View:
                         "table_position": row.position+ichar,
                         "el": row.el,
                         "row_type": row.row_type,
-                        "char": char
+                        "char": char,
+                        "char_immutable": char,
                     })    
             else:
                 result.append({
@@ -38,7 +39,8 @@ class View:
                     "table_position": row.position,
                     "el": row.el,
                     "row_type": row.row_type,
-                    "char": ""
+                    "char": "",
+                    "char_immutable": "",
                 })
 
         return pd.DataFrame(result)
@@ -97,7 +99,7 @@ class View:
             yield begin, end
                
     def exclude_outside(self, tag):
-        """exclude all text outside any of the tag.
+        """exclude all text outside the tag.
         
         arguments:
         tag -- for example `'note'` or `"{http://www.tei-c.org/ns/1.0}abbr"`
@@ -112,7 +114,7 @@ class View:
         return self
 
     def exclude_inside(self, tag):
-        """exclude all text within any of the tag.
+        """exclude all text within the tag.
         
         arguments:
         tag -- for example `'note'` or `"{http://www.tei-c.org/ns/1.0}abbr"`
@@ -126,6 +128,31 @@ class View:
         self.view.loc[mask, 'char'] = ""
         return self
 
+    def include_inside(self, tag):
+        """include all text within the tag. It will basically reset all modifications inside the given tag. This means that for example, altered characters or shrunken whitespaces will also be reset. It does not affect any characters outside the given tags (for example, it does not exclude anything outside explicitly). Therefore, it can combined nicely with `exclude_outside`, for example view.exclude_outside("a").include_iside_("b") which will exclude everything except what is inside `<a>`s and `<b>`s.
+        
+        arguments:
+        tag -- for example `'note'` or `"{http://www.tei-c.org/ns/1.0}abbr"`
+
+        returns:
+            self (standoffconverter.View) for chainability.
+        """
+        for begin, end in self.iter_indices_inside(tag):
+            self.view.loc[
+                np.logical_and(
+                    self.view.table_index.isin(np.arange(begin,end)),
+                    self.view.row_type=='text'
+                ),
+                "char"
+            ] = self.view.loc[
+                np.logical_and(
+                    self.view.table_index.isin(np.arange(begin,end)),
+                    self.view.row_type=='text'
+                ),
+                "char_immutable"
+            ]
+           
+        return self
 
     def insert_tag_text(self, tag, text):
         """insert a custom character to the plain text for all occurrences of the tag.

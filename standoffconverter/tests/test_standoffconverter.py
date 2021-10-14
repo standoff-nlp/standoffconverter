@@ -24,6 +24,18 @@ input_xml4 = b'''<TEI>
 
 input_xml5 = b'''<TEI><teiHeader></teiHeader><text><!-- comment 1 --><body><p> 11 12 13 14</p></body><!-- comment 2 --></text></TEI>'''
 
+input_xml6 = b'''<TEI>
+<teiHeader> </teiHeader>
+<text>
+    <body>
+        <p>1 2 3 4. 5 6<lb/> 7 9 10.</p>
+        <x>1 2 3 4. 5 6<lb/> 7 9 10.</x>
+        <div> 11 12 13 14</div>
+    </body>
+</text>
+</TEI>
+'''
+
 
 class TestStandoffConverter(unittest.TestCase):
 
@@ -338,6 +350,19 @@ class TestStandoffConverter(unittest.TestCase):
         plain = view.get_plain()
         self.assertTrue(
             plain == '2 3'
+        )
+
+    def test_view_include_1(self):
+        
+        tree = etree.fromstring(input_xml6)
+        so = standoffconverter.Standoff(tree)
+        view = standoffconverter.View(so)
+        view = view.exclude_outside("p")
+        view = view.include_inside("div")
+        plain = view.get_plain()
+
+        self.assertTrue(
+            plain == '1 2 3 4. 5 6 7 9 10. 11 12 13 14'
         )
 
     def test_view_shrink_whitespace_1(self):
