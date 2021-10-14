@@ -177,10 +177,8 @@ class View:
         return self
 
     def remove_comments(self):
-        """Remove comments from plain text view.
+        """Remove comments (something like "<!-- ... -->") from plain text view.
         
-        arguments:
-
         returns:
             self (int) for chainability.
         """
