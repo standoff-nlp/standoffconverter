@@ -103,7 +103,7 @@ class View:
         tag -- for example `'note'` or `"{http://www.tei-c.org/ns/1.0}abbr"`
 
         returns:
-            self (int) for chainability.
+            self (standoffconverter.View) for chainability.
         """
         mask = np.ones(len(self.view), dtype=bool)
         for begin, end in self.iter_indices_inside(tag):
@@ -118,7 +118,7 @@ class View:
         tag -- for example `'note'` or `"{http://www.tei-c.org/ns/1.0}abbr"`
 
         returns:
-            self (int) for chainability.
+            self (standoffconverter.View) for chainability.
         """
         mask = np.zeros(len(self.view), dtype=bool)
         for begin, end in self.iter_indices_inside(tag):
@@ -135,7 +135,7 @@ class View:
         text -- the text that the el should be replaced with.
 
         returns:
-            self (int) for chainability.
+            self (standoffconverter.View) for chainability.
         """
         
         for _, row in tqdm(self.view.iterrows(), desc='insert tag text', total=len(self.view)):
@@ -152,7 +152,7 @@ class View:
         custom_whitespaces (list)-- alternative list of characters that are considered as white spaces.
 
         returns:
-            self (int) for chainability.
+            self (standoffconverter.View) for chainability.
         """
 
         assert len(shrink_to) == 1, "only single character strings allowed."
@@ -180,7 +180,7 @@ class View:
         """Remove comments (something like "<!-- ... -->") from plain text view.
         
         returns:
-            self (int) for chainability.
+            self (standoffconverter.View) for chainability.
         """
         for begin, end in self.iter_indices_inside(
             lambda x: isinstance(x, etree._Comment)

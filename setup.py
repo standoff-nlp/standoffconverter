@@ -11,6 +11,7 @@ setup(name='standoffconverter',
       install_requires=[
           'lxml',
           'numpy',
-          'pandas'
+          'pandas',
+          'tqdm'
       ],
       zip_safe=False)
