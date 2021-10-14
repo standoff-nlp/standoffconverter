@@ -6,8 +6,8 @@ Welcome to standoffconverter's documentation!
    :maxdepth: 2
 
    api
-   
-* demo at so.davidlassner.com
+
+* demo at https://so.davidlassner.com
 * github at https://github.com/standoff-nlp/standoffconverter
 
 Indices and tables
