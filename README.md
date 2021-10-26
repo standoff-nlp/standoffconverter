@@ -16,7 +16,7 @@ so = Standoff(some_xml_tree)
 2. create a view of the standoff data that works well for NLP methods, such as converting `<lb>` into `\n` or strip multiple white spaces into a single one 
 ```Python
 view = (
-    View(so.table)
+    View(so)
         .shrink_whitespace()
         .insert_tag_text("http://www.tei-c.org/ns/1.0}lb","\n")
 )
