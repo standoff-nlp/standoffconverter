@@ -192,6 +192,10 @@ class PositionTable:
         parent = row.el
 
         context = [parent]
+        
+        if strip_ns(parent.tag) == 'text':
+            return Context(context)
+
         while strip_ns(context[-1].getparent().tag) != "text":
             context.append(context[-1].getparent())
         context.append(context[-1].getparent())
