@@ -44,7 +44,7 @@ class TestStandoffConverter(unittest.TestCase):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
         self.assertTrue(so.plain == '1 2 3 4 5 6 7 9 10 11 12 13 14')
-    
+
     # def test_from_tree_standoff(self):
     #     tree = etree.fromstring(input_xml1)
     #     so = standoffconverter.Standoff(tree)
@@ -298,7 +298,7 @@ class TestStandoffConverter(unittest.TestCase):
         self.assertTrue(
             str(collapsed_table.iloc[0].context) == "text>body>p"
         )
-    
+
     def test_json(self):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
@@ -344,16 +344,16 @@ class TestStandoffConverter(unittest.TestCase):
             attrib={"resp":"machine"}
         )
         view = standoffconverter.View(so)
-        
+
         view = view.exclude_outside("xx")
-        
+
         plain = view.get_plain()
         self.assertTrue(
             plain == '2 3'
         )
 
     def test_view_include_1(self):
-        
+
         tree = etree.fromstring(input_xml6)
         so = standoffconverter.Standoff(tree)
         view = standoffconverter.View(so)
@@ -388,7 +388,7 @@ class TestStandoffConverter(unittest.TestCase):
             plain == '1 2\n3 4 5 6 7 9 10 11 12 13 14'
         )
 
-    
+
     def test_view_shrink_whitespace_2(self):
         tree = etree.fromstring(input_xml3)
         so = standoffconverter.Standoff(tree)
@@ -404,7 +404,7 @@ class TestStandoffConverter(unittest.TestCase):
     def test_view_insert_tag_text(self):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
-        
+
         view = standoffconverter.View(so)
         view.insert_tag_text("lb", "\n")
 
@@ -442,7 +442,7 @@ class TestStandoffConverter(unittest.TestCase):
 
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
-        
+
         for _ in range(5):
             so.add_inline(
                 begin=2,
@@ -469,7 +469,7 @@ class TestStandoffConverter(unittest.TestCase):
 
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
-        
+
         for _ in range(5):
             so.add_inline(
                 begin=2,
@@ -489,23 +489,22 @@ class TestStandoffConverter(unittest.TestCase):
         self.assertTrue(
             output_xml == expected_output
         )
-        
+
     def test_span_1(self):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
-    
+
         so.add_span(
             begin=2,
-            end=7, 
+            end=7,
             tag="span",
             depth=None,
             attrib=None,
             id_="test1"
             )
-        
-        output_xml = etree.tostring(so.text_el).decode("utf-8")
-        expected_output = "<text><body><p>1 <span spanTo=\"test1\"/>2 3 4<anchor id=\"test1\"/> 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
 
+        output_xml = etree.tostring(so.text_el).decode("utf-8")
+        expected_output = "<text><body><p>1 <span spanTo=\"#test1\"/>2 3 4<anchor xml:id=\"test1\"/> 5 6 7 9 10</p><p> 11<lb/> 12 13 14</p></body></text>"
         self.assertTrue(
             output_xml == expected_output
         )
@@ -513,18 +512,19 @@ class TestStandoffConverter(unittest.TestCase):
     def test_span_2(self):
         tree = etree.fromstring(input_xml1)
         so = standoffconverter.Standoff(tree)
-    
+
         so.add_span(
             begin=2,
-            end=22, 
+            end=22,
             tag="span",
             depth=None,
             attrib=None,
             id_="test2"
         )
-        
+
         output_xml = etree.tostring(so.text_el).decode("utf-8")
-        expected_output = "<text><body><p>1 <span spanTo=\"test2\"/>2 3 4 5 6 7 9 10</p><p> 11<lb/> <anchor id=\"test2\"/>12 13 14</p></body></text>"
+        expected_output = "<text><body><p>1 <span spanTo=\"#test2\"/>2 3 4 5 6 7 9 10</p><p> 11<lb/> <anchor xml:id=\"test2\"/>12 13 14</p></body></text>"
+
         self.assertTrue(
             output_xml == expected_output
         )
@@ -536,9 +536,9 @@ class TestStandoffConverter(unittest.TestCase):
         view = view.remove_comments()
 
         plain = view.get_plain()
-        
+
         self.assertTrue(plain == ' 11 12 13 14')
-        
+
 
     def test_retain_comments(self):
         from standoffconverter.converters import standoff2tree
@@ -547,14 +547,14 @@ class TestStandoffConverter(unittest.TestCase):
         so = standoffconverter.Standoff(tree)
 
         output_el, _ = standoff2tree(so.table.df)
-        
+
         output_xml = etree.tostring(output_el).decode("utf-8")
 
         expected_output = "<text><!-- comment 1 --><body><p> 11 12 13 14</p></body><!-- comment 2 --></text>"
         self.assertTrue(
             output_xml == expected_output
         )
-        
+
 
 
 if __name__ == '__main__':

@@ -2,14 +2,14 @@ import numpy as np
 import json
 from .converters import flat_tree2position_table, flatten_tree, standoff2tree
 from .utils import get_order_for_traversal, create_el_from_so
-        
-        
+
+
 class Standoff:
     """Contains a reference to the etree.Element object and the corresponding ContextItem object to link the two representations.
     """
     def __init__(self, tei_tree, namespaces={}):
         """Create a Converter from a tree element instance.
-        
+
         arguments:
             tei_tree (etree.Element): the etree.Element instance.
 
@@ -29,7 +29,7 @@ class Standoff:
             raise ValueError("More than one text element is not supported.")
         else:
             self.text_el = texts[0]
-        
+
         self.text_el.tail = None # remove trailing whitespace of text element
 
         flat_tree = flatten_tree(self.text_el)
@@ -38,7 +38,7 @@ class Standoff:
     @property
     def table(self):
         """Table as a flattened TEI tree and additional character-position information. The data of the table actually resides at
-        
+
 >>> table.df
     position row_type      el  depth  text
 0          0     open    text    0.0  None
@@ -55,7 +55,7 @@ class Standoff:
 
 where the column `position` refers to the character position and `el` is a pointer to the actual etree.Element."""
         return self.table_
-    
+
     @property
     def tree(self):
         """tree of the TEI XML."""
@@ -81,7 +81,7 @@ where the column `position` refers to the character position and `el` is a point
                 }
             if row_type in ["close", "empty"]:
                 elements[el]["end"] = position
-            
+
         return get_order_for_traversal(list(elements.values()))
 
     @property
@@ -96,9 +96,9 @@ where the column `position` refers to the character position and `el` is a point
                 "end": int(standoff["end"]),
                 "depth": int(standoff["depth"]),
             })
-        
+
         return json.dumps(so_as_json)
-        
+
     @property
     def collapsed_table(self):
         """Table with text and context of the <text> element of the tei tree. All leaf/tail text with the same context is joined."""
@@ -106,7 +106,7 @@ where the column `position` refers to the character position and `el` is a point
 
     def get_parents(self, begin, end, depth=None):
         """Get all parent context.
-        
+
         arguments:
         begin (int)-- beginning character position within the XML
         end (int)-- ending character position within the XML
@@ -142,7 +142,7 @@ where the column `position` refers to the character position and `el` is a point
 
     def get_children(self, begin, end, depth):
         """Get all children context.
-        
+
         arguments:
         begin (int)-- beginning character position within the XML
         end (int)-- ending character position within the XML
@@ -157,7 +157,7 @@ where the column `position` refers to the character position and `el` is a point
             depth = len(begin_ctx)
 
         children = set(begin_ctx[int(depth):])
-        
+
         if not (self.table.df.position==begin).any():
             # begin not in self.table.df.position
             slice_ = self.table.df[np.logical_and(
@@ -188,7 +188,7 @@ where the column `position` refers to the character position and `el` is a point
             c_row_idx += 1
 
         return list(children)
-        
+
     def add_standoff(self, begin, end, tag, attrib):
         raise NotImplementedError()
 
@@ -215,7 +215,7 @@ where the column `position` refers to the character position and `el` is a point
 
         # now, recreate the subtree this element is in
         new_parent_el, old_els2new_els = standoff2tree(to_update)
-        
+
         for old_el, new_el in old_els2new_els.items():
             self.table.set_el(old_el, {"el": new_el})
         self.__replace_el(
@@ -225,9 +225,9 @@ where the column `position` refers to the character position and `el` is a point
 
 
     def add_inline(self, begin, end, tag, depth=None, attrib=None, insert_index_at_pos=0):
-        """Add a standoff element to the structure. 
+        """Add a standoff element to the structure.
         The standoff element will be added to the caches and to the etree.
-        
+
         arguments:
         begin (int)-- beginning character position within the XML
         end (int)-- ending character position within the XML
@@ -237,19 +237,19 @@ where the column `position` refers to the character position and `el` is a point
         """
 
         attrib = attrib if attrib is not None else {}
-        
+
         # First, create a new element and get parents and children
         new_el = create_el_from_so(tag, attrib)
         parents = self.get_parents(begin, end, depth)
 
         parent = parents[-1]
 
-        # DEPTH handling 
+        # DEPTH handling
         # set own depth and increase children's depth by one
         new_depth = depth if depth is not None else len(parents)
-        
+
         children = self.get_children(begin, end, new_depth)
-  
+
         for child in children:
             child_depth = self.table.df[self.table.df.el==child].iloc[0].depth
             self.table.set_el(child, {"depth":child_depth+1} )
@@ -263,9 +263,9 @@ where the column `position` refers to the character position and `el` is a point
         self.recreate_subtree(parent)
 
     def remove_inline(self, del_el):
-        """Remove a standoff element from the structure. 
+        """Remove a standoff element from the structure.
         The standoff element will be removed from the caches and from the etree.
-        
+
         arguments:
         del_el (etree.Element)-- the element that should be removed
 
@@ -289,8 +289,8 @@ where the column `position` refers to the character position and `el` is a point
         parent = parents[-1]
 
         children = self.get_children(begin, end, depth)
-        
-        # DEPTH handling 
+
+        # DEPTH handling
         # decrease children's depth by one
         for child in children:
             child_depth = self.table.df[self.table.df.el==child].iloc[0].depth
@@ -299,19 +299,19 @@ where the column `position` refers to the character position and `el` is a point
         self.table.remove_el(del_el)
 
         self.recreate_subtree(parent)
-        
 
-    def add_span(self, begin, end, tag, depth, attrib, id_=None):
-        """Add a span element to the structure. 
+
+    def add_span(self, begin, end, tag, depth, attrib, id_=""):
+        """Add a span element to the structure.
         arguments:
         begin (int)-- beginning character position within the XML
         end (int)-- ending character position within the XML
         tag (str)-- tag name, for example 'text' for <text>.
         depth (int)-- depth where to add the element. If None, it will be added deepest
         """
-        
+
         #add span start
-        attrib_ = {"spanTo":id_}
+        attrib_ = {"spanTo":"#"+id_}
         if attrib is not None:
             attrib_.update(attrib)
         attrib = attrib_
@@ -323,12 +323,12 @@ where the column `position` refers to the character position and `el` is a point
             depth=depth,
             attrib=attrib
             )
-        
+
         #add anchor
         self.add_inline(
             begin=end,
             end=end,
             tag="anchor",
             depth=depth,
-            attrib={"id":id_}
+            attrib={"{http://www.w3.org/XML/1998/namespace}id":id_}
             )
